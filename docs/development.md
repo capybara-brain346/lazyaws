@@ -10,16 +10,19 @@ read commands. Rust code forbids `unsafe`.
 | `src/app.rs` | Selection, focus, filters, and key input |
 | `src/aws/` | CLI process control and service queries |
 | `src/demo.rs` | Local sample data |
-| `src/ui.rs` | Terminal layout and rendering |
+| `src/ui.rs`, `src/ui/` | Terminal layout, shared borders, and key displays |
 | `src/runtime.rs` | Worker, polling, and terminal cleanup |
 | `src/main.rs` | Command-line entry point |
 | `tests/` | UI checks and test data |
 
 ```text
 main -> runtime::run -> App::handle_key
-                    -> Worker::request -> AwsCli::fetch -> AWS CLI
+                    -> Worker::request -> Sender::send
                     -> App::apply
                     -> ui::draw -> terminal buffer
+
+worker closure -> AwsCli::fetch -> service fetch -> FetchContext::invoke
+               -> FetchContext::invoke_region -> run_process -> Command::spawn
 ```
 
 ```text
@@ -30,6 +33,7 @@ Key input --> App --> request channel --> CLI worker
 ```text
 UI loop               CLI worker
    |-- generation N ----->|
+   |-- cancel N --------->|
    |-- generation N+1 --->|
    |<-- result N ---------|
    | discard N            |

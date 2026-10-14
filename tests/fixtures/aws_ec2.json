@@ -1,0 +1,22 @@
+{
+  "Reservations": [
+    {
+      "Instances": [
+        {
+          "InstanceId": "i-0002",
+          "InstanceType": "t3.small",
+          "State": {"Name": "stopped"},
+          "Tags": [],
+          "SecurityGroups": [{"GroupId": "sg-0002"}]
+        },
+        {
+          "InstanceId": "i-0001",
+          "InstanceType": "t3.micro",
+          "State": {"Name": "running"},
+          "Tags": [{"Key": "Name", "Value": "web"}, {"Key": "team", "Value": "ops"}],
+          "SecurityGroups": [{"GroupId": "sg-0001"}]
+        }
+      ]
+    }
+  ]
+}

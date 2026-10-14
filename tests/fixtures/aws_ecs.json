@@ -1,0 +1,23 @@
+{
+  "serviceResponse": {
+    "services": [
+      {
+        "serviceArn": "service-a",
+        "serviceName": "api",
+        "status": "ACTIVE",
+        "taskDefinition": "arn:aws:ecs:eu-west-1:123456789012:task-definition/api:4"
+      }
+    ],
+    "failures": []
+  },
+  "taskResponse": {
+    "tasks": [
+      {
+        "taskArn": "task-a",
+        "lastStatus": "RUNNING",
+        "taskDefinitionArn": "arn:aws:ecs:eu-west-1:123456789012:task-definition/api:4"
+      }
+    ],
+    "failures": []
+  }
+}

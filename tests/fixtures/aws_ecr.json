@@ -1,0 +1,14 @@
+{
+  "imageDetails": [
+    {
+      "imageDigest": "sha256:bbb",
+      "imageTags": [],
+      "imagePushedAt": 1767323045
+    },
+    {
+      "imageDigest": "sha256:aaa",
+      "imageTags": ["v1", "latest"],
+      "imagePushedAt": "2026-01-01T03:04:05Z"
+    }
+  ]
+}

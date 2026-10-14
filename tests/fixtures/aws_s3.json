@@ -1,0 +1,15 @@
+{
+  "Buckets": [
+    {"Name": "archive", "BucketRegion": "eu-west-1"}
+  ],
+  "objectResponse": {
+    "Contents": [
+      {"Key": "logs/a.txt", "Size": 12}
+    ]
+  },
+  "prefixResponse": {
+    "CommonPrefixes": [
+      {"Prefix": "logs/"}
+    ]
+  }
+}

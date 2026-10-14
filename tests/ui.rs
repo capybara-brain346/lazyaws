@@ -2,7 +2,7 @@ use std::time::Instant;
 
 use lazyaws::{
     app::App,
-    config::{Config, SIDE_PANEL_PERCENT},
+    config::{Config, SIDE_PANEL_WIDTH_DENOMINATOR, SIDE_PANEL_WIDTH_NUMERATOR},
     model::{Resource, Service, Snapshot},
     ui,
 };
@@ -44,7 +44,8 @@ fn render(app: &App, config: &Config, width: u16, height: u16) -> (String, bool)
         })
         .collect::<Vec<_>>()
         .join("\n");
-    let side_width = width * SIDE_PANEL_PERCENT / 100;
+    let side_width =
+        (u32::from(width) * SIDE_PANEL_WIDTH_NUMERATOR / SIDE_PANEL_WIDTH_DENOMINATOR) as u16;
     let has_blue_list_row =
         (5..height).any(|y| (0..side_width).any(|x| buffer[(x, y)].bg == Color::Blue));
     (text, has_blue_list_row)
@@ -76,6 +77,22 @@ fn renders_service_tabs_and_five_rounded_side_panels_for_each_service() {
         assert!(text.contains("Details"));
         assert!(text.contains("Command log"));
         assert!(text.contains('╭'));
+        let compact_pane_row = text.lines().position(|line| line.contains("[5]")).unwrap();
+        let log_row = text
+            .lines()
+            .position(|line| line.contains("[6] Command log"))
+            .unwrap();
+        assert_eq!(compact_pane_row, 32);
+        assert_eq!(log_row, 32);
+
+        let mut focused = app;
+        focused.focus = 4;
+        let (expanded, _) = render(&focused, &Config::default(), 120, 36);
+        let expanded_pane_row = expanded
+            .lines()
+            .position(|line| line.contains("[5]"))
+            .unwrap();
+        assert!(expanded_pane_row < compact_pane_row);
     }
 }
 

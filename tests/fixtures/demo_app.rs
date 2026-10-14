@@ -168,6 +168,11 @@ fn primary_list_error_keeps_and_marks_related_data_stale() {
 #[test]
 fn detail_focus_returns_to_its_list_and_scrolls() {
     let mut app = App::new();
+    app.handle_key(key(KeyCode::Char('1')));
+    app.handle_key(key(KeyCode::Tab));
+    assert_eq!(app.focus, 1);
+    app.handle_key(key(KeyCode::BackTab));
+    assert_eq!(app.focus, 0);
     app.apply(snapshot(&[("a", "alpha")], &[]));
     app.handle_key(key(KeyCode::Char('3')));
     app.handle_key(key(KeyCode::Enter));

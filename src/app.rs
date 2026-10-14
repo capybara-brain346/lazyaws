@@ -52,7 +52,7 @@ impl App {
         Self {
             service,
             snapshot: Snapshot::empty(service),
-            focus: 0,
+            focus: 1,
             selected: [0; 4],
             filter: String::new(),
             filtering: false,
@@ -352,7 +352,7 @@ impl App {
         self.filter_panel = state.filter_panel;
         self.filtering = false;
         self.snapshot = Snapshot::empty(service);
-        self.focus = 0;
+        self.focus = 1;
         self.detail_panel = 0;
         self.detail_scroll = 0;
         self.error = None;
@@ -421,12 +421,12 @@ impl App {
     }
 
     fn cycle_panel(&mut self, delta: isize) {
-        let current = if (1..=4).contains(&self.focus) {
-            self.focus - 1
-        } else {
-            0
+        let current = match self.focus {
+            0..=4 => self.focus,
+            5 => self.detail_panel + 1,
+            _ => 0,
         };
-        self.focus = ((current as isize + delta).rem_euclid(4) as usize) + 1;
+        self.focus = (current as isize + delta).rem_euclid(5) as usize;
     }
 
     fn clear_related(&mut self) {

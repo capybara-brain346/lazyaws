@@ -4,6 +4,9 @@ A Rust terminal interface for EC2, ECS, ECR, and S3. The screen uses the
 [Lazygit layout](https://github.com/jesseduffield/lazygit/blob/master/docs/Config.md):
 five panes on the left, a detail pane on the right, a command log, and a key bar.
 Use the service tabs to change the AWS service.
+The bottom left pane expands when it has focus. The command log is compact
+on terminals with fewer than 40 rows.
+See [a captured demo screen](docs/demo.txt).
 
 This first release supports resource lists, filters, and JSON detail views.
 It uses AWS CLI read commands. It does not change AWS resources.
@@ -50,6 +53,7 @@ if your profile uses SSO.
 | Tab / Shift+Tab, `h` / `l` | Change pane |
 | `1` to `5` | Select a left pane |
 | `0`, Enter | Select the detail pane |
+| `6` | Select the command log |
 | `j` / `k`, Up / Down | Select a row |
 | `/` | Filter the current list |
 | Enter / Esc in the filter | Accept / clear the filter |
@@ -80,10 +84,12 @@ Terminal          Worker             AWS CLI
 
 Only the active service is polled. A refresh starts every five seconds when
 the worker is free. Requests do not overlap. The worker skips queued requests
-for old selections. The UI discards results for old selections.
+for old selections and cancels a running command when selection changes.
+The UI discards results for old selections.
 Command timeouts, output limits, and list limits are defined in
 [src/config.rs](src/config.rs). Large lists can be incomplete; the command log
-shows limit notices. An error keeps the last successful data and marks it stale.
+shows limit notices. A command can run for up to 20 seconds; a full refresh has
+a 30-second limit. An error keeps the last successful data and marks it stale.
 
 ## Checks
 
