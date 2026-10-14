@@ -21,7 +21,10 @@ impl Service {
     }
 
     pub fn index(self) -> usize {
-        Self::ALL.iter().position(|service| *service == self).unwrap_or(0)
+        Self::ALL
+            .iter()
+            .position(|service| *service == self)
+            .unwrap_or(0)
     }
 
     pub fn panel_titles(self) -> [&'static str; 4] {

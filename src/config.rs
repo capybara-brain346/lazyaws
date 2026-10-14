@@ -1,11 +1,30 @@
 use std::time::Duration;
 
+use ratatui::style::Color;
+
+pub const FOCUS_COLOR: Color = Color::Green;
+pub const BORDER_COLOR: Color = Color::DarkGray;
+pub const TITLE_COLOR: Color = Color::Cyan;
+pub const SELECTION_TEXT_COLOR: Color = Color::White;
+pub const SELECTION_BACKGROUND_COLOR: Color = Color::Blue;
+pub const KEY_COLOR: Color = Color::Blue;
+pub const WARNING_COLOR: Color = Color::Yellow;
+pub const ERROR_COLOR: Color = Color::Red;
+pub const MUTED_COLOR: Color = Color::DarkGray;
+pub const JSON_KEY_COLOR: Color = Color::Blue;
+pub const JSON_STRING_COLOR: Color = Color::Green;
+pub const JSON_LITERAL_COLOR: Color = Color::Magenta;
+pub const JSON_NUMBER_COLOR: Color = Color::Yellow;
+
 pub const POLL_INTERVAL: Duration = Duration::from_secs(5);
 pub const EVENT_WAIT: Duration = Duration::from_millis(50);
 pub const COMMAND_TIMEOUT: Duration = Duration::from_secs(20);
+pub const REFRESH_TIMEOUT: Duration = Duration::from_secs(30);
 pub const PROCESS_CHECK_INTERVAL: Duration = Duration::from_millis(20);
 pub const CLI_CONNECT_TIMEOUT_SECS: u64 = 5;
 pub const CLI_READ_TIMEOUT_SECS: u64 = 10;
+pub const CLI_MAX_ATTEMPTS: u8 = 1;
+pub const OUTPUT_BUFFER_BYTES: usize = 8192;
 pub const MAX_ITEMS: usize = 500;
 pub const MAX_OUTPUT_BYTES: u64 = 16 * 1024 * 1024;
 pub const ECS_SERVICES_BATCH: usize = 10;
@@ -21,7 +40,11 @@ pub const MIN_WIDTH: u16 = 60;
 pub const MIN_HEIGHT: u16 = 20;
 pub const HELP_WIDTH: u16 = 64;
 pub const HELP_HEIGHT: u16 = 23;
+pub const DETAIL_SCROLL_STEP: u16 = 10;
 pub const DEFAULT_AWS_BIN: &str = "aws";
+pub const DEFAULT_PROFILE_LABEL: &str = "default";
+pub const DEFAULT_REGION_LABEL: &str = "AWS config";
+pub const PROCESS_KILL_BIN: &str = "kill";
 
 #[derive(Clone, Debug)]
 pub struct Config {
@@ -43,7 +66,7 @@ impl Default for Config {
 }
 
 pub const USAGE: &str = "lazyaws [--demo] [--profile NAME] [--region REGION] [--aws-bin PATH]\n\n\
-Keys: [/] services, Tab panels, j/k rows, Enter details, / filter, r refresh, ? help, q quit.\n\
+Keys: [ and ] services, Tab panels, j/k rows, Enter details, / filter, r refresh, ? help, q quit.\n\
 AWS mode uses your AWS CLI credentials and read commands. --demo needs no credentials.\n\
 Environment: LAZYAWS_AWS_BIN overrides the AWS executable. AWS_PROFILE and AWS_REGION\n\
 are passed through to the AWS CLI when no command-line override is supplied.";
@@ -57,8 +80,13 @@ pub enum Cli {
 impl Config {
     pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Cli, String> {
         let mut config = Self {
-            aws_bin: std::env::var("LAZYAWS_AWS_BIN")
-                .unwrap_or_else(|_| DEFAULT_AWS_BIN.into()),
+            aws_bin: std::env::var("LAZYAWS_AWS_BIN").unwrap_or_else(|_| DEFAULT_AWS_BIN.into()),
+            profile: std::env::var("AWS_PROFILE")
+                .ok()
+                .or_else(|| std::env::var("AWS_DEFAULT_PROFILE").ok()),
+            region: std::env::var("AWS_REGION")
+                .ok()
+                .or_else(|| std::env::var("AWS_DEFAULT_REGION").ok()),
             ..Self::default()
         };
         let mut args = args.into_iter();
@@ -69,7 +97,9 @@ impl Config {
                 "--version" | "-V" => return Ok(Cli::Version),
                 "--demo" => config.demo = true,
                 "--profile" | "--region" | "--aws-bin" => {
-                    let value = args.next().filter(|value| !value.is_empty() && !value.starts_with('-'))
+                    let value = args
+                        .next()
+                        .filter(|value| !value.is_empty() && !value.starts_with('-'))
                         .ok_or_else(|| format!("{arg} needs a value"))?;
 
                     match arg.as_str() {
