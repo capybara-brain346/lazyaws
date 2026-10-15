@@ -1,0 +1,300 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-15T10:13:24.152110+00:00",
+  "title": "Design System: Lazy AWS",
+  "extensions": {
+    "colorMeta": {
+      "background": {
+        "role": "neutral",
+        "displayName": "Background",
+        "tonalRamp": [
+          "oklch(15.00% 0.0136 264.09)",
+          "oklch(26.43% 0.0136 264.09)",
+          "oklch(37.86% 0.0136 264.09)",
+          "oklch(49.29% 0.0136 264.09)",
+          "oklch(60.71% 0.0136 264.09)",
+          "oklch(72.14% 0.0136 264.09)",
+          "oklch(83.57% 0.0136 264.09)",
+          "oklch(95.00% 0.0136 264.09)"
+        ]
+      },
+      "surface": {
+        "role": "neutral",
+        "displayName": "Surface",
+        "tonalRamp": [
+          "oklch(15.00% 0.0216 263.90)",
+          "oklch(26.43% 0.0216 263.90)",
+          "oklch(37.86% 0.0216 263.90)",
+          "oklch(49.29% 0.0216 263.90)",
+          "oklch(60.71% 0.0216 263.90)",
+          "oklch(72.14% 0.0216 263.90)",
+          "oklch(83.57% 0.0216 263.90)",
+          "oklch(95.00% 0.0216 263.90)"
+        ]
+      },
+      "surface-raised": {
+        "role": "neutral",
+        "displayName": "Surface Raised",
+        "tonalRamp": [
+          "oklch(15.00% 0.0255 261.03)",
+          "oklch(26.43% 0.0255 261.03)",
+          "oklch(37.86% 0.0255 261.03)",
+          "oklch(49.29% 0.0255 261.03)",
+          "oklch(60.71% 0.0255 261.03)",
+          "oklch(72.14% 0.0255 261.03)",
+          "oklch(83.57% 0.0255 261.03)",
+          "oklch(95.00% 0.0255 261.03)"
+        ]
+      },
+      "foreground": {
+        "role": "neutral",
+        "displayName": "Foreground",
+        "tonalRamp": [
+          "oklch(15.00% 0.0091 258.34)",
+          "oklch(26.43% 0.0091 258.34)",
+          "oklch(37.86% 0.0091 258.34)",
+          "oklch(49.29% 0.0091 258.34)",
+          "oklch(60.71% 0.0091 258.34)",
+          "oklch(72.14% 0.0091 258.34)",
+          "oklch(83.57% 0.0091 258.34)",
+          "oklch(95.00% 0.0091 258.34)"
+        ]
+      },
+      "muted": {
+        "role": "neutral",
+        "displayName": "Muted",
+        "tonalRamp": [
+          "oklch(15.00% 0.0256 259.82)",
+          "oklch(26.43% 0.0256 259.82)",
+          "oklch(37.86% 0.0256 259.82)",
+          "oklch(49.29% 0.0256 259.82)",
+          "oklch(60.71% 0.0256 259.82)",
+          "oklch(72.14% 0.0256 259.82)",
+          "oklch(83.57% 0.0256 259.82)",
+          "oklch(95.00% 0.0256 259.82)"
+        ]
+      },
+      "soft": {
+        "role": "neutral",
+        "displayName": "Soft",
+        "tonalRamp": [
+          "oklch(15.00% 0.0214 261.76)",
+          "oklch(26.43% 0.0214 261.76)",
+          "oklch(37.86% 0.0214 261.76)",
+          "oklch(49.29% 0.0214 261.76)",
+          "oklch(60.71% 0.0214 261.76)",
+          "oklch(72.14% 0.0214 261.76)",
+          "oklch(83.57% 0.0214 261.76)",
+          "oklch(95.00% 0.0214 261.76)"
+        ]
+      },
+      "accent": {
+        "role": "primary",
+        "displayName": "Accent",
+        "tonalRamp": [
+          "oklch(15.00% 0.0854 60.40)",
+          "oklch(26.43% 0.0854 60.40)",
+          "oklch(37.86% 0.0854 60.40)",
+          "oklch(49.29% 0.0854 60.40)",
+          "oklch(60.71% 0.0854 60.40)",
+          "oklch(72.14% 0.0854 60.40)",
+          "oklch(83.57% 0.0854 60.40)",
+          "oklch(95.00% 0.0854 60.40)"
+        ]
+      },
+      "accent-hover": {
+        "role": "primary",
+        "displayName": "Accent Hover",
+        "tonalRamp": [
+          "oklch(15.00% 0.0691 61.01)",
+          "oklch(26.43% 0.0691 61.01)",
+          "oklch(37.86% 0.0691 61.01)",
+          "oklch(49.29% 0.0691 61.01)",
+          "oklch(60.71% 0.0691 61.01)",
+          "oklch(72.14% 0.0691 61.01)",
+          "oklch(83.57% 0.0691 61.01)",
+          "oklch(95.00% 0.0691 61.01)"
+        ]
+      },
+      "border": {
+        "role": "neutral",
+        "displayName": "Border",
+        "tonalRamp": [
+          "oklch(15.00% 0.0276 261.53)",
+          "oklch(26.43% 0.0276 261.53)",
+          "oklch(37.86% 0.0276 261.53)",
+          "oklch(49.29% 0.0276 261.53)",
+          "oklch(60.71% 0.0276 261.53)",
+          "oklch(72.14% 0.0276 261.53)",
+          "oklch(83.57% 0.0276 261.53)",
+          "oklch(95.00% 0.0276 261.53)"
+        ]
+      },
+      "success": {
+        "role": "secondary",
+        "displayName": "Success",
+        "tonalRamp": [
+          "oklch(15.00% 0.0543 157.78)",
+          "oklch(26.43% 0.0543 157.78)",
+          "oklch(37.86% 0.0543 157.78)",
+          "oklch(49.29% 0.0543 157.78)",
+          "oklch(60.71% 0.0543 157.78)",
+          "oklch(72.14% 0.0543 157.78)",
+          "oklch(83.57% 0.0543 157.78)",
+          "oklch(95.00% 0.0543 157.78)"
+        ]
+      },
+      "primary-ink": {
+        "role": "neutral",
+        "displayName": "Primary Ink",
+        "tonalRamp": [
+          "oklch(15.00% 0.0208 62.98)",
+          "oklch(26.43% 0.0208 62.98)",
+          "oklch(37.86% 0.0208 62.98)",
+          "oklch(49.29% 0.0208 62.98)",
+          "oklch(60.71% 0.0208 62.98)",
+          "oklch(72.14% 0.0208 62.98)",
+          "oklch(83.57% 0.0208 62.98)",
+          "oklch(95.00% 0.0208 62.98)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "Main page heading."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Section headings."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Tour step headings."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Explanatory text."
+      },
+      "code": {
+        "displayName": "Code",
+        "purpose": "Commands and terminal details."
+      }
+    },
+    "shadows": [
+      {
+        "name": "terminal",
+        "value": "0 26px 70px rgb(0 0 0 / 45%)",
+        "purpose": "Lifts the main terminal above the landscape."
+      }
+    ],
+    "motion": [
+      {
+        "name": "terminal-arrive",
+        "value": "1s cubic-bezier(.16, 1, .3, 1)",
+        "purpose": "One entrance: translateY(18px) to 0 and brightness(.75) to 1."
+      },
+      {
+        "name": "control-transition",
+        "value": ".2s",
+        "purpose": "Button background, color, and transform; link color."
+      },
+      {
+        "name": "reduced-motion",
+        "value": "animation: none; transition: none; scroll-behavior: auto",
+        "purpose": "Applies when the user requests reduced motion."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "wide-landscape",
+        "value": "1600px"
+      },
+      {
+        "name": "section-margins",
+        "value": "1200px"
+      },
+      {
+        "name": "single-column",
+        "value": "760px"
+      },
+      {
+        "name": "compact",
+        "value": "380px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The main page action.",
+      "html": "<a class=\"ds-primary\" href=\"#install\">Get started <svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" aria-hidden=\"true\"><path d=\"M5 12h14m-6-6 6 6-6 6\"/></svg></a>",
+      "css": ".ds-primary{display:inline-flex;align-items:center;justify-content:center;gap:18px;border-radius:6px;font-family:\"Manrope Variable\",sans-serif;font-size:12px;font-weight:650;border:0;cursor:pointer;transition:background .2s,color .2s,transform .2s;min-height:43px;padding:0 20px;background:var(--accent,#efb98d);color:#20170f}.ds-primary:hover{background:var(--accent-hover,#f7cba7);transform:translateY(-1px)}.ds-primary:focus-visible{outline:2px solid var(--accent,#efb98d);outline-offset:5px;}.ds-primary{text-decoration:none}"
+    },
+    {
+      "name": "Copy Button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "A quiet icon action in command panels.",
+      "html": "<button class=\"ds-ghost\" aria-label=\"Copy command\"><svg width=\"15\" height=\"15\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" aria-hidden=\"true\"><rect x=\"9\" y=\"9\" width=\"13\" height=\"13\" rx=\"2\"/><path d=\"M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1\"/></svg></button>",
+      "css": ".ds-ghost{display:inline-flex;align-items:center;justify-content:center;gap:18px;border-radius:6px;font-family:\"Manrope Variable\",sans-serif;font-size:12px;font-weight:650;border:0;cursor:pointer;transition:background .2s,color .2s,transform .2s;width:36px;height:36px;color:var(--muted,#a4aebe);background:transparent}.ds-ghost:hover{color:var(--foreground,#edf1f7);background:var(--surface-raised,#171e2a)}.ds-ghost:focus-visible{outline:2px solid var(--accent,#efb98d);outline-offset:5px;}"
+    },
+    {
+      "name": "Service Navigation",
+      "kind": "nav",
+      "description": "Selects a real terminal capture with supplied AWS icons. Each button keeps its service name as an accessible label and hover title. The preview cycles every two seconds, wraps after Lambda, and has a pause/resume control. Manual selection restarts the timer.",
+      "html": "<nav class=\"ds-tabs\" aria-label=\"Preview an AWS service\"><button aria-label=\"EC2\" title=\"EC2\" aria-pressed=\"true\"><img src=\"/icons/ec2.svg\" width=\"26\" height=\"26\" alt=\"\"/></button><button aria-label=\"S3\" title=\"S3\" aria-pressed=\"false\"><img src=\"/icons/s3.svg\" width=\"26\" height=\"26\" alt=\"\"/></button><button aria-label=\"Lambda\" title=\"Lambda\" aria-pressed=\"false\"><img src=\"/icons/lambda.svg\" width=\"26\" height=\"26\" alt=\"\"/></button></nav>",
+      "css": ".ds-tabs {\n  display: flex;\n  align-items: stretch;\n  padding: 0 14px;\n  gap: 10px;\n  background: #1b1e2a;\n  min-height: 37px;\n}\n.ds-tabs button {\n  display: inline-flex;\n  align-items: center;\n  justify-content: center;\n  min-width: 48px;\n  min-height: 44px;\n  color: #aeb7c8;\n  background: transparent;\n  border: 0;\n  border-bottom: 1px solid transparent;\n  font-family: var(--font-mono);\n  font-size: 10px;\n  padding: 9px 12px;\n}\n.ds-tabs button:hover {\n  color: white;\n  background: #252a3a;\n}\n.ds-tabs button[aria-pressed=\"true\"] {\n  color: var(--accent);\n  border-bottom-color: var(--accent);\n}\n.ds-tabs button:focus-visible{outline:2px solid var(--accent,#efb98d);outline-offset:5px;}"
+    },
+    {
+      "name": "Command Panel",
+      "kind": "card",
+      "refersTo": "code-block",
+      "description": "A bordered command surface with a copy control.",
+      "html": "<section class=\"ds-code\"><div class=\"ds-code-label\">terminal<button class=\"ds-ghost\" aria-label=\"Copy command\"><svg width=\"15\" height=\"15\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" aria-hidden=\"true\"><rect x=\"9\" y=\"9\" width=\"13\" height=\"13\" rx=\"2\"/><path d=\"M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1\"/></svg></button></div><pre>cargo run -- --demo</pre></section>",
+      "css": ".ds-ghost{display:inline-flex;align-items:center;justify-content:center;gap:18px;border-radius:6px;font-family:\"Manrope Variable\",sans-serif;font-size:12px;font-weight:650;border:0;cursor:pointer;transition:background .2s,color .2s,transform .2s;width:36px;height:36px;color:var(--muted,#a4aebe);background:transparent}.ds-ghost:hover{color:var(--foreground,#edf1f7);background:var(--surface-raised,#171e2a)}.ds-ghost:focus-visible{outline:2px solid var(--accent,#efb98d);outline-offset:5px;}.ds-code{background:var(--surface,#111620);border:1px solid var(--border,#29313f);border-radius:7px;overflow:hidden}.ds-code-label{display:flex;align-items:center;justify-content:space-between;color:var(--muted,#a4aebe);padding-left:13px;font-family:\"Manrope Variable\",sans-serif;font-size:9px}.ds-code pre{margin:0;padding:3px 14px 15px;overflow-x:auto;font-family:\"JetBrains Mono Variable\",monospace;font-size:12px;line-height:2;color:#cdd7e8}"
+    },
+    {
+      "name": "Section Artwork",
+      "kind": "custom",
+      "description": "Generated cloud artwork with the supplied logo\u2019s navy body, gold light, and soft form. Used at section and guide-step level.",
+      "html": "<img class=\"ds-section-icon\" src=\"/icons/install.webp\" width=\"128\" height=\"128\" alt=\"\"/>",
+      "css": ".ds-section-icon{display:block;width:128px;height:128px;object-fit:contain;flex-shrink:0}"
+    }
+  ],
+  "narrative": {
+    "northStar": "A terminal in a night landscape",
+    "overview": "Dark navy surfaces and a quiet landscape frame the real terminal. Pale text supports long reading. Apricot marks actions and selected controls. The landscape adds depth; actual demo captures show the product.\n\nThe page has open space around headings and compact detail inside terminal and command panels. Local fonts keep the same type across visits.",
+    "keyCharacteristics": [
+      "Dark navy surfaces with pale text.",
+      "Apricot actions and selected controls.",
+      "Real terminal captures with full-size links.",
+      "Open section spacing and compact command panels."
+    ],
+    "rules": [
+      {
+        "name": "The Action Color Rule",
+        "body": "Use apricot for actions, selection, and focus. Use neutral colors for large text areas and panel fills.",
+        "section": "colors"
+      },
+      {
+        "name": "The Code Type Rule",
+        "body": "Use the mono face for commands, step numbers, and terminal labels. Use Manrope for explanatory text.",
+        "section": "typography"
+      }
+    ],
+    "dos": [
+      "**Do** use real demo captures to explain the terminal.",
+      "**Do** keep commands in the mono face.",
+      "**Do** provide visible keyboard focus and full-size capture links.",
+      "**Do** keep the reduced-motion behavior."
+    ],
+    "donts": [
+      "**Don't** use apricot as a large panel fill.",
+      "**Don't** add the large terminal shadow to every panel.",
+      "**Don't** stretch terminal captures or place them in narrow fixed-width boxes."
+    ]
+  }
+}

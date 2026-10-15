@@ -1,0 +1,204 @@
+@media (min-width: 1600px) {
+  .hero-stage {
+    max-width: 1700px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+}
+
+@media (max-width: 1200px) {
+  .header-inner,
+  .footer-inner,
+  .section-shell {
+    margin-left: 48px;
+    margin-right: 48px;
+  }
+  .install-section {
+    gap: 48px;
+  }
+  .tour-timeline > li {
+    gap: 45px;
+  }
+}
+
+@media (max-width: 760px) {
+  .site-header {
+    height: 75px;
+  }
+  .header-inner,
+  .footer-inner,
+  .section-shell {
+    margin-left: 24px;
+    margin-right: 24px;
+  }
+  .brand {
+    font-size: 23px;
+  }
+  .github-link {
+    font-size: 11px;
+    gap: 7px;
+  }
+  .hero-copy {
+    padding-top: 42px;
+  }
+  h1 {
+    font-size: clamp(44px, 13.2vw, 60px);
+  }
+  .hero-copy > p {
+    font-size: 13px;
+    max-width: 380px;
+  }
+  .desktop-break {
+    display: none;
+  }
+  .hero-actions {
+    gap: 23px;
+  }
+  .hero-stage {
+    margin-top: -95px;
+    padding: 160px 15px 35px;
+  }
+  .hero-stage .landscape {
+    object-position: 65% center;
+  }
+  .window-bar {
+    height: 31px;
+    padding: 0 10px;
+    font-size: 8px;
+  }
+  .window-dots {
+    width: 45px;
+    gap: 4px !important;
+  }
+  .window-dots i {
+    width: 5px;
+    height: 5px;
+  }
+  .service-tabs {
+    gap: 1px;
+    padding: 0 7px;
+    min-height: 36px;
+  }
+  .service-tabs button {
+    font-size: 9px;
+    padding: 9px 10px;
+    min-width: 44px;
+    min-height: 44px;
+  }
+  .preview-caption {
+    padding: 9px;
+    font-size: 8px;
+  }
+
+  .install-section {
+    display: block;
+    padding-top: 57px;
+    padding-bottom: 40px;
+  }
+  h2 {
+    font-size: 31px;
+  }
+  .section-intro > p {
+    max-width: 390px;
+  }
+  .requirements {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 15px;
+    margin-top: 25px;
+  }
+  .requirements > span {
+    width: 100%;
+  }
+  .section-intro .install-note {
+    max-width: 390px;
+    margin-top: 18px;
+  }
+  .install-steps {
+    margin-top: 38px;
+  }
+  pre {
+    font-size: 11px;
+  }
+  .tour-section {
+    padding-top: 55px;
+    padding-bottom: 55px;
+  }
+  .tour-heading {
+    margin-bottom: 42px;
+    align-items: flex-start;
+    gap: 16px;
+  }
+  .tour-heading .section-icon {
+    width: 72px;
+    height: 72px;
+  }
+  .tour-icon {
+    width: 80px;
+    height: 80px;
+  }
+
+  .tour-timeline > li {
+    grid-template-columns: 1fr;
+    gap: 23px;
+    padding-left: 30px;
+    padding-bottom: 40px;
+  }
+  .tour-copy {
+    padding-top: 0;
+  }
+  .tour-copy::before {
+    left: -30px;
+    top: 8px;
+    width: 20px;
+  }
+  .tour-node {
+    left: -43px;
+  }
+  .tour-copy h3 {
+    font-size: 21px;
+  }
+  .tour-copy p {
+    max-width: 100%;
+  }
+
+  .tour-end {
+    padding-left: 30px;
+  }
+  .tour-end a {
+    margin-left: 0;
+  }
+  .site-footer {
+    height: auto;
+  }
+  .footer-inner {
+    min-height: 100px;
+    gap: 20px;
+    flex-wrap: wrap;
+    padding: 25px 0;
+  }
+}
+
+@media (max-width: 380px) {
+  h1 {
+    font-size: clamp(42px, 13.2vw, 50px);
+  }
+  .github-link span {
+    max-width: 90px;
+  }
+  .hero-actions {
+    gap: 16px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}

@@ -1,0 +1,5 @@
+@import "tailwindcss";
+@import "./base.css";
+@import "./hero.css";
+@import "./guides.css";
+@import "./responsive.css";

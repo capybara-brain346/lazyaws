@@ -25,3 +25,15 @@ rustc-ice-*.txt
 
 # Locally installed agent skills; skills-lock.json records their source and hash
 .agents/
+
+# Next.js landing page
+apps/landing/node_modules/
+apps/landing/.next/
+apps/landing/out/
+apps/landing/next-env.d.ts
+apps/landing/*.tsbuildinfo
+apps/landing/test-results/
+apps/landing/playwright-report/
+.impeccable/review/
+.impeccable/cache/
+.impeccable/hook.cache.json

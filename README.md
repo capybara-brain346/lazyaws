@@ -165,6 +165,10 @@ cargo build --release
 
 Tests use local data and a fake AWS executable. They do not need an AWS account.
 
+## Website
+
+The Next.js landing page is in [apps/landing](apps/landing/README.md). Run `npm ci` and `npm run dev` from that directory.
+
 ## Contributing
 
 Module boundaries and workflows are in [the implementation guide](docs/development.md). Run `cargo fmt`, `cargo clippy`, and `cargo test` before you send a change.
