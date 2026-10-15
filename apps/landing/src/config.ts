@@ -10,7 +10,7 @@ export const site = {
   support:
     "We support macOS, Ubuntu, Arch Linux, and Omarchy. Windows is not supported.",
   installNote:
-    "Use curl or Homebrew on macOS and Linux. Debian installs are available without a support guarantee. AWS CLI v2 and credentials are needed only for your AWS account.",
+    "Choose curl or Homebrew to install on macOS or Linux. Then run the demo or connect your AWS account. Debian installs are available without a support guarantee. AWS CLI v2 and credentials are needed only for your AWS account.",
   awsCli:
     "https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html",
   copyFeedbackMs: 2500,
@@ -31,19 +31,18 @@ export const site = {
 export const installation = [
   {
     title: "Install with curl",
-    description:
-      "Download the binary for your system. No Rust or Git needed.",
+    description: `Install the binary to ~/${distribution.installDir}. Add this directory to your PATH if needed.`,
     command: `curl -fsSL ${site.homepage}/install.sh | sh`,
     label: "Install with curl",
   },
   {
-    title: "Or use Homebrew",
-    description: "Use the same tap on macOS or Linux with Homebrew installed.",
+    title: "Or install with Homebrew",
+    description: "Install from our tap on macOS or Linux with Homebrew.",
     command: `brew install ${distribution.tap}/${distribution.name}`,
     label: "Install with Homebrew",
   },
   {
-    title: "Take it for a spin",
+    title: "Run the installed demo",
     description:
       "Start with local sample data. No AWS account or credentials needed.",
     command: "lazyaws --demo",

@@ -172,8 +172,10 @@ Section artwork --compressed WebP--> public/icons --> page sections
 
 ## Scope
 
-The page documents curl and Homebrew installs on macOS and Linux. The install
-script and latest-version file are static assets. GitHub Releases hosts the
+The page presents curl and Homebrew as alternative installs on macOS and Linux.
+The curl instructions show the install directory from `distribution/config.json`
+and explain when to add it to `PATH`. The demo uses the installed `lazyaws` command.
+The install script and latest-version file are static assets. GitHub Releases hosts the
 versioned binary archives and checksums. R2 is deferred until account activation.
 There is no sign-up, tracking, remote font request, or backend.
 
