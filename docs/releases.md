@@ -8,7 +8,7 @@
 | Website | Existing Worker at https://lazyaws.xyz; `www.lazyaws.xyz` is retained |
 | GitHub Releases | Published [v0.1.0](https://github.com/capybara-brain346/lazyaws/releases/tag/v0.1.0), immutable assets |
 | curl | Live at https://lazyaws.xyz/install.sh; latest is `v0.1.0` |
-| Homebrew | Published [tap](https://github.com/capybara-brain346/homebrew-tap); native installs and formula tests pass on all four targets |
+| Homebrew | Published [tap](https://github.com/capybara-brain346/homebrew-tap); native installs, formula tests, and strict audits pass on all four targets |
 | crates.io | Published [0.1.0](https://crates.io/crates/lazyaws/0.1.0); locked registry install and demo checks pass |
 | AUR | Recipe prepared; owner declined AUR publication |
 | R2 | Account not enabled; owner chose GitHub downloads now and R2 later |
@@ -154,6 +154,7 @@ required `tag` input, for example `v0.1.0`. The workflow checks the deployed
 installer against its generated source, installs the exact release, checks
 help/version and demo exit, then installs and tests the Homebrew formula on
 all four native targets. Homebrew setup runs only on temporary GitHub runners.
+The same jobs run `brew audit --strict` against the installed formula.
 
 The initial macOS run found a test path assumption. macOS resolves its
 temporary directory from `/var` to `/private/var`. The test now keeps the raw
@@ -176,9 +177,12 @@ download test -> Operation::args -> args::download_file -> download_path [same]
 
 - [Native release checks](https://github.com/capybara-brain346/lazyaws/actions/runs/38738345755): all four targets passed formatting, Clippy, 99 Rust tests, release builds, extracted binary checks, and demo exit. The Linux x86_64 binary also passed in a clean Arch container.
 - [Public install checks](https://github.com/capybara-brain346/lazyaws/actions/runs/38739508477): the deployed curl script and Homebrew formula installed and passed version, help, and demo checks on all four targets.
+- [Strict Homebrew checks](https://github.com/capybara-brain346/lazyaws/actions/runs/38740094248): curl install, Homebrew install, formula tests, and strict audit pass on all four targets. The ARM64 job needed retries after two Homebrew broken-pipe failures. A diagnostic run and the final plain-command retry passed; the earlier pipe failures have no confirmed cause.
 - All four public archive digests match `SHA256SUMS` and GitHub's asset digests.
 - All six browser tests pass against `https://lazyaws.xyz`. The deployed Worker version is `89f29d77-721e-432f-aef2-1b15eb0fd57b`. Both custom domains remain attached.
 - A registry install of `lazyaws 0.1.0` passed help, version, and terminal demo checks on Omarchy.
+- [Cargo workflow dry run](https://github.com/capybara-brain346/lazyaws/actions/runs/38740098209) passed. The manual publish job uses the configured `crates.io` environment secret.
+- Omarchy checks used version `4.0.4-1`, `glibc 2.44+r24+g16be1518495f-1`, and `gcc-libs 16.2.1+r23+gd564253eb6c8-1`.
 - The local Arch recipe builds one package from the public archive. `!strip` and `!debug` keep the already stripped binary unchanged and prevent an empty debug package. No package was installed into the user's system for this check.
 
 Homebrew core is deferred until the project meets its current
