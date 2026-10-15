@@ -5,10 +5,10 @@ use std::time::Instant;
 
 use common::{app_with_service, render, render_with_map, sample_operation, sample_resource};
 use lazyaws::{
-    app::ActionDialog,
+    app::{ActionDialog, Focus},
     config::Config,
     model::{Resource, Service},
-    operations::AccountContext,
+    operations::{AccountContext, Parameter},
     ui::MouseTarget,
 };
 
@@ -47,7 +47,7 @@ fn renders_service_tabs_and_five_rounded_side_panels_for_each_service() {
         assert_eq!(log_row, 32);
 
         let mut focused = app;
-        focused.focus = 4;
+        focused.focus = Focus::List(3);
         let (expanded, _) = render(&focused, &Config::default(), 120, 36);
         let expanded_pane_row = expanded
             .lines()
@@ -61,7 +61,7 @@ fn renders_service_tabs_and_five_rounded_side_panels_for_each_service() {
 fn renders_selected_resource_json_status_and_sanitized_stale_errors() {
     let mut app = app_with_service(Service::Ec2);
     app.snapshot.panels[0].items.push(sample_resource());
-    app.focus = 1;
+    app.focus = Focus::List(0);
     app.detail_scroll = u16::MAX;
     app.error = Some("refresh failed\u{1b}[31m".into());
     app.logs.push_back("aws output\u{1b}[2J".into());
@@ -118,7 +118,7 @@ fn scrolls_the_selected_resource_into_the_list_view() {
         })
         .collect();
     app.selected[0] = 39;
-    app.focus = 1;
+    app.focus = Focus::List(0);
 
     let (text, has_blue_list_row) = render(&app, &Config::default(), 120, 36);
     assert!(text.contains("resource-39"));
@@ -160,7 +160,7 @@ fn hit_map_uses_tab_footer_and_visible_row_coordinates() {
     app.snapshot.panels[0].error = Some("refresh failed".into());
     app.filter = "needle-1".into();
     app.selected[0] = 19;
-    app.focus = 1;
+    app.focus = Focus::List(0);
 
     let (text, hit_map) = render_with_map(&app, &Config::default(), 120, 36);
     assert!(text.contains("needle-19"));
@@ -182,7 +182,6 @@ fn hit_map_uses_tab_footer_and_visible_row_coordinates() {
             *target
                 == MouseTarget::Row {
                     panel: 0,
-                    focus: 1,
                     index: 19,
                 }
         })
@@ -194,7 +193,7 @@ fn hit_map_uses_tab_footer_and_visible_row_coordinates() {
 #[test]
 fn compact_layout_keeps_resource_rows_clickable() {
     let mut app = app_with_service(Service::S3);
-    app.focus = 1;
+    app.focus = Focus::List(0);
     app.snapshot.panels[0].items.push(sample_resource());
 
     let (_, hit_map) = render_with_map(&app, &Config::default(), 60, 20);
@@ -213,14 +212,7 @@ fn compact_layout_keeps_resource_rows_clickable() {
         })
         .copied()
         .expect("compact layout row is clickable");
-    assert_eq!(
-        target,
-        MouseTarget::Row {
-            panel: 0,
-            focus: 1,
-            index: 0
-        }
-    );
+    assert_eq!(target, MouseTarget::Row { panel: 0, index: 0 });
     assert_eq!(hit_map.target_at(row.x, row.y), Some(target));
 }
 
@@ -236,7 +228,7 @@ fn account_header_shows_identity_or_failure_without_stale_identity() {
     assert!(text.contains("123456789012"));
     assert!(text.contains("assumed-role/Team/read-only"));
 
-    app.focus = 0;
+    app.focus = Focus::Status;
     let (details, _) = render_with_map(&app, &Config::default(), 100, 30);
     assert!(details.contains("arn:aws:sts::123456789012:assumed-role/Team/read-only"));
     assert!(details.contains("AROATEST:read-only"));
@@ -259,6 +251,7 @@ fn action_dialog_shows_target_warning_command_and_click_targets_at_minimum_size(
         editing: false,
         input: String::new(),
         error: None,
+        preview: sample_operation(None).args(""),
     });
     app.account = Some(Ok(AccountContext {
         account: "123456789012".into(),
@@ -306,6 +299,7 @@ fn executing_action_shows_wait_state_without_confirmation_controls() {
         editing: false,
         input: String::new(),
         error: None,
+        preview: Ok(Vec::new()),
     });
     app.executing = true;
 
@@ -336,6 +330,7 @@ fn action_menu_rows_are_clickable_at_minimum_size() {
         editing: false,
         input: String::new(),
         error: None,
+        preview: Ok(Vec::new()),
     });
 
     let (text, hit_map) = render_with_map(&app, &Config::default(), 60, 20);
@@ -355,12 +350,13 @@ fn action_menu_rows_are_clickable_at_minimum_size() {
 fn parameter_dialog_shows_input_error_and_accept_button() {
     let mut app = app_with_service(Service::S3);
     app.actions = Some(ActionDialog {
-        operations: vec![sample_operation(Some("Upload file path"))],
+        operations: vec![sample_operation(Some(Parameter::UploadFilePath))],
         selected: 0,
         confirming: false,
         editing: true,
         input: String::new(),
         error: Some("Upload file path is required".into()),
+        preview: Ok(Vec::new()),
     });
 
     let (text, hit_map) = render_with_map(&app, &Config::default(), 60, 20);
@@ -394,6 +390,7 @@ fn long_action_menu_keeps_the_selected_row_visible_and_clickable() {
         editing: false,
         input: String::new(),
         error: None,
+        preview: Ok(Vec::new()),
     });
 
     let (text, hit_map) = render_with_map(&app, &Config::default(), 60, 20);

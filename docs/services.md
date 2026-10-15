@@ -7,7 +7,9 @@ Query errors appear in the panes and command log.
 The header shows the AWS account ID and short principal. Focus Status with `1`
 to see the full ARN, user ID, profile, and region in Details. Lazy AWS gets the
 identity with [`sts get-caller-identity`](https://docs.aws.amazon.com/cli/latest/reference/sts/get-caller-identity.html).
-AWS does not require an IAM permission for this call.
+AWS does not require an IAM permission for this call. Lazy AWS keeps a
+successful identity for the session. It tries the call again on each refresh
+only while the lookup fails.
 
 ## Resource panes
 
@@ -106,7 +108,9 @@ Lambda invoke writes the function payload to a private temporary file, then
 shows it in Details as `Payload`. A function error is reported as an action
 error with a payload excerpt. Invoke with log tail decodes the last 4 KB of
 logs into `LogResultDecoded`. The command log hides the `--payload` value
-because event payloads can contain sensitive data. Sync payloads are limited
+because event payloads can contain sensitive data. The payload is sent with
+`--cli-binary-format raw-in-base64-out`, so AWS CLI v2 reads it as raw JSON
+and not as base64. Sync payloads are limited
 to 6 MB and async payloads to 1 MB. Updating configuration restarts the
 function. Provisioned concurrency adds charges even without invocations.
 Deleting a function removes its versions; remove event source mappings first.
@@ -180,8 +184,10 @@ without replacing a file. It removes the temporary folder after the command.
 The [GetObject command](https://docs.aws.amazon.com/cli/latest/reference/s3api/get-object.html)
 uses the selected bucket's region.
 
-Each AWS command has a 20-second time limit. A large transfer can time out.
-An upload may finish in AWS even if Lazy AWS reports a timeout or is stopped.
+An upload or download has a 60-minute time limit (`TRANSFER_TIMEOUT` in
+`src/config.rs`). Other AWS commands have a 20-second limit. The screen waits
+until the transfer stops. An upload may finish in AWS even if Lazy AWS reports
+a timeout or is stopped.
 Check the object before you try the upload again.
 
 ```text

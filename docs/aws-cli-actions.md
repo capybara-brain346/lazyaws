@@ -29,8 +29,8 @@ A failed API item is an error even when the CLI process exits successfully.
 Partial `run-task` success can leave tasks running; check the cluster before retry.
 A Lambda `FunctionError` is an error with a payload excerpt even when the CLI
 exits successfully.
-Read output appears in Details. CLI-paginated actions use `MAX_ITEMS` from
-`src/config.rs` (500). Service deployment lists use one API page and can return
+Read output appears in Details. The catalog marks each CLI-paginated action;
+those actions use `MAX_ITEMS` from `src/config.rs` (500). Service deployment lists use one API page and can return
 `nextToken`; this command does not support CLI `--max-items`. Read the command log for incomplete results.
 
 ```text
@@ -124,7 +124,7 @@ See [update-service](https://docs.aws.amazon.com/cli/latest/reference/ecs/update
 for the full field list.
 
 - Start new deployment — Existing — `ecs update-service --force-new-deployment`. ECS replaces tasks. This is useful when a reused image tag now points to a new image.
-- Set desired task count — Existing — `ecs update-service --desired-count`. The count can start or stop tasks; it does not itself start a service deployment.
+- Set desired task count — Existing — `ecs update-service --desired-count`. The dialog starts with the current desired count. The count can start or stop tasks; it does not itself start a service deployment.
 - Delete service — Existing — `ecs delete-service` with JSON `force:false`. The service desired count must be zero.
 - Deploy task definition revision — Added for ECS controller — `ecs update-service --task-definition`. The action takes a family/revision or ARN. This starts a new deployment. It sets the task definition; it does not restore every prior service setting. This added action is shown only when the controller is ECS or absent (the API default).
 - List service deployments — Added for ECS controller — `ecs list-service-deployments`. The selected cluster and service ARN are fixed. Output includes each deployment ARN, status, and target service revision. AWS documents recent deployment history for the last 90 days.
@@ -405,7 +405,7 @@ Sources: [S3 API command index](https://docs.aws.amazon.com/cli/latest/reference
 ### Functions tab
 
 - `list-functions` — Implemented read — Populates function rows with runtime, memory, and timeout. AWS returns up to 50 functions per call; the app paginates with `MAX_ITEMS`.
-- `invoke` — Implemented action (three variants) — Sync, sync with `--log-type Tail`, and async `--invocation-type Event`. The dialog takes an optional JSON payload or empty input. The payload is passed with `--payload`; the function response is written to a private temporary file and shown in Details as `Payload`. A `FunctionError` is an action error with a payload excerpt. Log tail adds decoded `LogResultDecoded`. The command log hides the payload value.
+- `invoke` — Implemented action (three variants) — Sync, sync with `--log-type Tail`, and async `--invocation-type Event`. The dialog takes an optional JSON payload or empty input. The payload is passed with `--payload` and `--cli-binary-format raw-in-base64-out`; the function response is written to a private temporary file and shown in Details as `Payload`. A `FunctionError` is an action error with a payload excerpt. Log tail adds decoded `LogResultDecoded`. The command log hides the payload value.
 - `get-function` — Implemented action — Reads configuration, code location, and tags.
 - `get-function-configuration` — Implemented action — Reads runtime, memory, timeout, environment, and VPC settings.
 - `get-policy` — Implemented action — Reads the resource policy; fails when no policy exists.

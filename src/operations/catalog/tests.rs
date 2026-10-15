@@ -96,7 +96,7 @@ fn task_count_validation_is_nonnegative_i32_and_sets_the_json_value() {
         json!({"desiredCount":1}),
         "service",
         "warning",
-        Some("Desired task count"),
+        Some(Parameter::DesiredTaskCount),
     );
     assert_eq!(action.args("0").unwrap()[3], r#"{"desiredCount":0}"#);
     assert!(action.args("-1").is_err());
@@ -146,7 +146,7 @@ fn upload_args_keep_keys_literal_and_require_a_regular_file() {
         json!({"Bucket":"bucket","Key":"folder/--cli-input-json file://literal"}),
         "object",
         "warning",
-        Some("Upload file path"),
+        Some(Parameter::UploadFilePath),
     );
     let args = action.args(path.to_str().unwrap()).unwrap();
     let input: Value = serde_json::from_str(&args[3]).unwrap();
@@ -162,7 +162,7 @@ fn upload_args_keep_keys_literal_and_require_a_regular_file() {
         json!({"Bucket":"bucket"}),
         "bucket",
         "warning",
-        Some("Upload file path"),
+        Some(Parameter::UploadFilePath),
     );
     let args = bucket_upload.args(path.to_str().unwrap()).unwrap();
     let input: Value = serde_json::from_str(&args[3]).unwrap();

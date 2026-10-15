@@ -71,15 +71,18 @@ pub(super) fn available(panel: usize, resource: &Resource, primary: &Resource) -
                     None,
                 ));
             }
-            actions.push(operation(
-                "View instance status",
-                "ec2",
-                "describe-instance-status",
-                json!({"InstanceIds":[id],"IncludeAllInstances":true}),
-                id,
-                "Reads system and instance status checks and scheduled events.",
-                None,
-            ));
+            actions.push(
+                operation(
+                    "View instance status",
+                    "ec2",
+                    "describe-instance-status",
+                    json!({"InstanceIds":[id],"IncludeAllInstances":true}),
+                    id,
+                    "Reads system and instance status checks and scheduled events.",
+                    None,
+                )
+                .paginated(),
+            );
             actions.push(operation(
                 "View latest console output",
                 "ec2",
@@ -97,7 +100,7 @@ pub(super) fn available(panel: usize, resource: &Resource, primary: &Resource) -
                     json!({"Resources":[id]}),
                     id,
                     "Enter a Tags list with Key and Value. Tag changes can affect access policies.",
-                    Some("JSON fields"),
+                    Some(Parameter::JsonFields),
                 ));
             }
             actions
@@ -132,18 +135,21 @@ pub(super) fn available(panel: usize, resource: &Resource, primary: &Resource) -
                     json!({"VolumeId":id}),
                     id,
                     "Enter a larger Size in JSON fields. AWS does not allow shrinking a volume. Extend its file system after the resize; EBS charges can increase.",
-                    Some("JSON fields"),
+                    Some(Parameter::JsonFields),
                 ));
             }
-            actions.push(operation(
-                "View volume modification status",
-                "ec2",
-                "describe-volumes-modifications",
-                json!({"VolumeIds":[id]}),
-                id,
-                "Reads the most recent modification request for this volume.",
-                None,
-            ));
+            actions.push(
+                operation(
+                    "View volume modification status",
+                    "ec2",
+                    "describe-volumes-modifications",
+                    json!({"VolumeIds":[id]}),
+                    id,
+                    "Reads the most recent modification request for this volume.",
+                    None,
+                )
+                .paginated(),
+            );
             if let Some((instance_id, device)) = selected_attachment(resource, primary) {
                 let is_root_volume = string(&primary.detail, &["RootDeviceName"]) == Some(device);
                 let primary_state = nested_string(&primary.detail, &["State", "Name"]);
@@ -178,7 +184,7 @@ pub(super) fn available(panel: usize, resource: &Resource, primary: &Resource) -
                 json!({"GroupId":id}),
                 id,
                 "Enter an IpPermissions array in JSON fields. Use least-privilege sources. Changes affect every resource using this group.",
-                Some("JSON fields"),
+                Some(Parameter::JsonFields),
             ),
             operation(
                 "Remove inbound rules",
@@ -187,7 +193,7 @@ pub(super) fn available(panel: usize, resource: &Resource, primary: &Resource) -
                 json!({"GroupId":id}),
                 id,
                 "Enter exact rule data or rule IDs in JSON fields. Changes affect every resource using this group.",
-                Some("JSON fields"),
+                Some(Parameter::JsonFields),
             ),
             operation(
                 "Add outbound rules",
@@ -196,7 +202,7 @@ pub(super) fn available(panel: usize, resource: &Resource, primary: &Resource) -
                 json!({"GroupId":id}),
                 id,
                 "Enter an IpPermissions array in JSON fields. Use least-privilege destinations. Changes affect every resource using this group.",
-                Some("JSON fields"),
+                Some(Parameter::JsonFields),
             ),
             operation(
                 "Remove outbound rules",
@@ -205,7 +211,7 @@ pub(super) fn available(panel: usize, resource: &Resource, primary: &Resource) -
                 json!({"GroupId":id}),
                 id,
                 "Enter exact rule data or rule IDs in JSON fields. Changes affect every resource using this group.",
-                Some("JSON fields"),
+                Some(Parameter::JsonFields),
             ),
         ],
         3 => {
@@ -227,7 +233,7 @@ pub(super) fn available(panel: usize, resource: &Resource, primary: &Resource) -
                     json!({"Resources":[primary.id],"Tags":[{"Key":key}]}),
                     id,
                     "Overwrites this tag's value. Tag changes can affect policies that use tags.",
-                    Some("Tag value"),
+                    Some(Parameter::TagValue),
                 ),
                 operation(
                     "Add or update instance tags",
@@ -236,7 +242,7 @@ pub(super) fn available(panel: usize, resource: &Resource, primary: &Resource) -
                     json!({"Resources":[primary.id]}),
                     id,
                     "Enter a Tags array in JSON fields. Tag changes can affect policies that use tags.",
-                    Some("JSON fields"),
+                    Some(Parameter::JsonFields),
                 ),
             ]
         }

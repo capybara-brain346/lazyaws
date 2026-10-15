@@ -34,7 +34,10 @@ fn function_actions_include_invoke_reads_and_lifecycle() {
         .iter()
         .find(|action| action.label == "Invoke function")
         .unwrap();
-    assert_eq!(invoke.parameter, Some("Invoke payload"));
+    assert_eq!(
+        invoke.parameter,
+        Some(Parameter::InvokePayload(InvokeMode::Sync))
+    );
     assert_eq!(invoke.input["FunctionName"], function.id);
 
     let tag = actions
@@ -42,7 +45,7 @@ fn function_actions_include_invoke_reads_and_lifecycle() {
         .find(|action| action.label == "Add function tags")
         .unwrap();
     assert_eq!(tag.input["Resource"], function.id);
-    assert_eq!(tag.parameter, Some("JSON fields"));
+    assert_eq!(tag.parameter, Some(Parameter::JsonFields));
 }
 
 #[test]
@@ -94,7 +97,7 @@ fn alias_and_tag_actions_keep_captured_targets() {
         .unwrap();
     assert_eq!(update.input["FunctionName"], "api");
     assert_eq!(update.input["Name"], "prod");
-    assert_eq!(update.parameter, Some("Alias version"));
+    assert_eq!(update.parameter, Some(Parameter::AliasVersion));
 
     let tag = resource("Team", json!({"Key": "Team", "Value": "commerce"}));
     let tag_actions = available(3, &tag, &primary);
@@ -107,7 +110,7 @@ fn alias_and_tag_actions_keep_captured_targets() {
     let edit = tag_actions
         .iter()
         .find(|action| {
-            action.name == "tag-resource" && action.parameter == Some("Lambda tag value")
+            action.name == "tag-resource" && action.parameter == Some(Parameter::LambdaTagValue)
         })
         .unwrap();
     assert_eq!(edit.input["Tags"], json!({"Team": ""}));

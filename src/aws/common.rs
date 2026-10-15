@@ -73,6 +73,19 @@ pub(super) fn sort_and_limit(panel: &mut Panel, logs: &mut Vec<String>, name: &s
     }
 }
 
+pub(super) fn set_panel(
+    snapshot: &mut Snapshot,
+    index: usize,
+    result: Result<Vec<Resource>, String>,
+    name: &str,
+) {
+    match result {
+        Ok(items) => snapshot.panels[index].items = items,
+        Err(error) => panel_error(snapshot, index, error),
+    }
+    sort_and_limit(&mut snapshot.panels[index], &mut snapshot.logs, name);
+}
+
 pub(super) fn panel_error(snapshot: &mut Snapshot, index: usize, error: impl AsRef<str>) {
     let panel = &mut snapshot.panels[index];
     match &mut panel.error {

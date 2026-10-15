@@ -475,11 +475,7 @@ fn expired_refresh_deadline_skips_commands() {
         .replace("LOG_PATH", &transcript.to_string_lossy());
     fs::write(&fake.binary, script).unwrap();
     let client = fake.client();
-    let context = FetchContext {
-        client: &client,
-        deadline: Instant::now(),
-        timeout_logged: AtomicBool::new(false),
-    };
+    let context = FetchContext::new(&client, Duration::ZERO, crate::config::COMMAND_TIMEOUT);
     let mut logs = Vec::new();
     let error = context
         .invoke(

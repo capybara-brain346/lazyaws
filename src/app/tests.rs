@@ -3,7 +3,7 @@ use serde_json::json;
 use super::*;
 use crate::{
     model::{Resource, Service, Snapshot},
-    operations::AccountContext,
+    operations::{AccountContext, Parameter},
     ui::{HitMap, MouseTarget},
 };
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers, MouseButton, MouseEvent, MouseEventKind};
@@ -66,8 +66,8 @@ fn filter_uses_raw_indexes_and_treats_q_and_r_as_text() {
 
     app.handle_key(key(KeyCode::Char('/')));
     app.handle_key(key(KeyCode::Char('q')));
-    assert_eq!(app.visible_indices(1), vec![0, 2]);
-    assert_eq!(app.visible_indices(2), vec![0]);
+    assert_eq!(app.visible_indices(0), vec![0, 2]);
+    assert_eq!(app.visible_indices(1), vec![0]);
     assert_eq!(app.selected[0], 0);
     app.handle_key(key(KeyCode::Enter));
     assert_eq!(app.handle_key(key(KeyCode::Down)), Action::Refresh);
@@ -175,17 +175,17 @@ fn detail_focus_returns_to_its_list_and_scrolls() {
     let mut app = App::new();
     app.handle_key(key(KeyCode::Char('1')));
     app.handle_key(key(KeyCode::Tab));
-    assert_eq!(app.focus, 1);
+    assert_eq!(app.focus, Focus::List(0));
     app.handle_key(key(KeyCode::BackTab));
-    assert_eq!(app.focus, 0);
+    assert_eq!(app.focus, Focus::Status);
     app.apply(snapshot(&[("a", "alpha")], &[]));
     app.handle_key(key(KeyCode::Char('3')));
     app.handle_key(key(KeyCode::Enter));
-    assert_eq!(app.focus, 5);
+    assert_eq!(app.focus, Focus::Detail);
     app.handle_key(key(KeyCode::PageDown));
     assert_eq!(app.detail_scroll, 10);
     app.handle_key(key(KeyCode::Esc));
-    assert_eq!(app.focus, 2);
+    assert_eq!(app.focus, Focus::List(1));
 }
 
 #[test]
@@ -195,9 +195,9 @@ fn mouse_selects_raw_filtered_rows_and_scrolls_the_hovered_pane() {
         &[("0", "quiet"), ("1", "other"), ("2", "query result")],
         &[("v1", "volume")],
     ));
-    app.focus = 2;
+    app.focus = Focus::List(1);
     let details = HitMap {
-        regions: vec![(Rect::new(0, 0, 10, 5), MouseTarget::Pane(5))],
+        regions: vec![(Rect::new(0, 0, 10, 5), MouseTarget::Pane(Focus::Detail))],
     };
     let click_details = MouseEvent {
         kind: MouseEventKind::Down(MouseButton::Left),
@@ -210,7 +210,7 @@ fn mouse_selects_raw_filtered_rows_and_scrolls_the_hovered_pane() {
         app.selected_resource().map(|resource| resource.id.as_str()),
         Some("v1")
     );
-    app.focus = 2;
+    app.focus = Focus::List(1);
     let scroll_details = MouseEvent {
         kind: MouseEventKind::ScrollDown,
         ..click_details
@@ -222,32 +222,21 @@ fn mouse_selects_raw_filtered_rows_and_scrolls_the_hovered_pane() {
     );
     assert_eq!(app.detail_scroll, 10);
 
-    app.focus = 1;
+    app.focus = Focus::List(0);
     app.filter = "q".into();
     app.filter_panel = 0;
-    assert_eq!(app.visible_indices(1), vec![0, 2]);
+    assert_eq!(app.visible_indices(0), vec![0, 2]);
 
     let rect = Rect::new(0, 0, 10, 5);
     let targets = HitMap {
         regions: vec![
-            (rect, MouseTarget::Pane(1)),
-            (
-                rect,
-                MouseTarget::Row {
-                    panel: 0,
-                    focus: 1,
-                    index: 2,
-                },
-            ),
+            (rect, MouseTarget::Pane(Focus::List(0))),
+            (rect, MouseTarget::Row { panel: 0, index: 2 }),
         ],
     };
     assert_eq!(
         targets.target_at(1, 1),
-        Some(MouseTarget::Row {
-            panel: 0,
-            focus: 1,
-            index: 2,
-        })
+        Some(MouseTarget::Row { panel: 0, index: 2 })
     );
     let click = MouseEvent {
         kind: MouseEventKind::Down(MouseButton::Left),
@@ -260,7 +249,7 @@ fn mouse_selects_raw_filtered_rows_and_scrolls_the_hovered_pane() {
     assert!(app.snapshot.panels[1].items.is_empty());
 
     let pane = HitMap {
-        regions: vec![(rect, MouseTarget::Pane(1))],
+        regions: vec![(rect, MouseTarget::Pane(Focus::List(0)))],
     };
     let scroll = MouseEvent {
         kind: MouseEventKind::ScrollUp,
@@ -279,7 +268,7 @@ fn ecs_app() -> App {
         arn: "arn:aws:iam::123456789012:user/demo".into(),
         user_id: "AIDADEMO".into(),
     }));
-    app.focus = 2;
+    app.focus = Focus::List(1);
     app
 }
 
@@ -306,11 +295,13 @@ fn action_parameter_requires_lock_then_y_and_keeps_the_captured_target() {
     app.open_actions();
     assert_eq!(
         app.actions.as_ref().unwrap().operations[1].parameter,
-        Some("Desired task count")
+        Some(Parameter::DesiredTaskCount)
     );
     assert_eq!(app.handle_key(key(KeyCode::Char('j'))), Action::None);
     assert_eq!(app.handle_key(key(KeyCode::Enter)), Action::None);
     assert!(app.actions.as_ref().unwrap().editing);
+    assert_eq!(app.actions.as_ref().unwrap().input, "2");
+    app.handle_key(key(KeyCode::Backspace));
 
     for character in ['q', 'r', 'y'] {
         assert_eq!(app.handle_key(key(KeyCode::Char(character))), Action::None);
@@ -322,6 +313,7 @@ fn action_parameter_requires_lock_then_y_and_keeps_the_captured_target() {
 
     app.handle_key(key(KeyCode::Char('-')));
     app.handle_key(key(KeyCode::Char('1')));
+    assert!(app.actions.as_ref().unwrap().preview.is_err());
     app.handle_key(key(KeyCode::Enter));
     let dialog = app.actions.as_ref().unwrap();
     assert!(dialog.editing);

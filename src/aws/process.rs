@@ -12,11 +12,15 @@ use std::{
 use serde_json::Value;
 
 use crate::config::{
-    CLI_CONNECT_TIMEOUT_SECS, CLI_MAX_ATTEMPTS, CLI_READ_TIMEOUT_SECS, COMMAND_TIMEOUT, MAX_ITEMS,
-    MAX_OUTPUT_BYTES, OUTPUT_BUFFER_BYTES, PROCESS_CHECK_INTERVAL, PROCESS_KILL_BIN,
+    CLI_CONNECT_TIMEOUT_SECS, CLI_MAX_ATTEMPTS, CLI_READ_TIMEOUT_SECS, MAX_ITEMS, MAX_OUTPUT_BYTES,
+    OUTPUT_BUFFER_BYTES, PROCESS_CHECK_INTERVAL, PROCESS_KILL_BIN,
 };
 
 use super::FetchContext;
+
+const CLI_TIMEOUT_MESSAGE: &str = "AWS CLI timed out";
+// botocore reports a socket read timeout with this text; AWS may have applied the request.
+const CLI_READ_TIMEOUT_MESSAGE: &str = "Read timeout on endpoint URL";
 
 #[cfg(unix)]
 use std::os::unix::process::CommandExt;
@@ -72,7 +76,7 @@ impl FetchContext<'_> {
             &self.client.config.aws_bin,
             &args,
             &self.client.cancel,
-            COMMAND_TIMEOUT.min(remaining),
+            self.command_timeout.min(remaining),
             MAX_OUTPUT_BYTES,
         )
         .and_then(|stdout| {
@@ -235,7 +239,7 @@ fn run_process(
             let _ = join_reader(stdout);
             let _ = join_reader(stderr);
             return Err(format!(
-                "AWS CLI timed out after {} ms",
+                "{CLI_TIMEOUT_MESSAGE} after {} ms",
                 timeout.as_millis()
             ));
         }
@@ -359,6 +363,10 @@ fn display_command(binary: &str, args: &[String]) -> String {
         }))
         .collect::<Vec<_>>()
         .join(" ")
+}
+
+pub fn outcome_unknown(error: &str) -> bool {
+    error.contains(CLI_TIMEOUT_MESSAGE) || error.contains(CLI_READ_TIMEOUT_MESSAGE)
 }
 
 fn has_more(value: &Value) -> bool {

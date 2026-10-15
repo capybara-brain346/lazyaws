@@ -12,15 +12,15 @@ use std::{
         Arc,
         atomic::{AtomicBool, Ordering},
     },
-    time::Instant,
+    time::{Duration, Instant},
 };
 
 use serde_json::Value;
 
 use crate::{
-    config::{Config, REFRESH_TIMEOUT},
+    config::{COMMAND_TIMEOUT, Config, REFRESH_TIMEOUT, TRANSFER_TIMEOUT},
     model::{Service, Snapshot},
-    operations::{AccountContext, Operation},
+    operations::{AccountContext, Operation, Parameter},
 };
 
 pub struct AwsCli {
@@ -30,18 +30,30 @@ pub struct AwsCli {
 
 pub(crate) const INVOKE_OUTPUT_PLACEHOLDER: &str = transfers::INVOKE_OUTPUT_PLACEHOLDER;
 
+pub use process::outcome_unknown;
+
 pub(super) struct FetchContext<'a> {
     client: &'a AwsCli,
     deadline: Instant,
+    command_timeout: Duration,
     timeout_logged: AtomicBool,
 }
 
-impl FetchContext<'_> {
+impl<'a> FetchContext<'a> {
+    fn new(client: &'a AwsCli, budget: Duration, command_timeout: Duration) -> Self {
+        Self {
+            client,
+            deadline: Instant::now() + budget,
+            command_timeout,
+            timeout_logged: AtomicBool::new(false),
+        }
+    }
+
     pub(super) fn expired(&self) -> bool {
         Instant::now() >= self.deadline
     }
 
-    pub(super) fn remaining(&self) -> Result<std::time::Duration, String> {
+    pub(super) fn remaining(&self) -> Result<Duration, String> {
         self.deadline
             .checked_duration_since(Instant::now())
             .filter(|remaining| !remaining.is_zero())
@@ -63,11 +75,7 @@ impl AwsCli {
     }
 
     pub fn identity(&self, logs: &mut Vec<String>) -> Result<AccountContext, String> {
-        let context = FetchContext {
-            client: self,
-            deadline: Instant::now() + REFRESH_TIMEOUT,
-            timeout_logged: AtomicBool::new(false),
-        };
+        let context = FetchContext::new(self, REFRESH_TIMEOUT, COMMAND_TIMEOUT);
         let response =
             context.invoke(logs, &["sts".into(), "get-caller-identity".into()], false)?;
         let result = (|| {
@@ -90,7 +98,7 @@ impl AwsCli {
         logs: &mut Vec<String>,
     ) -> Result<Value, String> {
         let mut args = operation.args(value)?;
-        let download = if operation.parameter == Some("Download file path") {
+        let download = if operation.parameter == Some(Parameter::DownloadFilePath) {
             let destination = args
                 .pop()
                 .ok_or("Download operation is missing its output path")?;
@@ -100,7 +108,7 @@ impl AwsCli {
         } else {
             None
         };
-        let invoke = if operation.service == "lambda" && operation.name == "invoke" {
+        let invoke = if matches!(operation.parameter, Some(Parameter::InvokePayload(_))) {
             let placeholder = args
                 .pop()
                 .ok_or("Invoke operation is missing its output placeholder")?;
@@ -113,11 +121,8 @@ impl AwsCli {
         } else {
             None
         };
-        let context = FetchContext {
-            client: self,
-            deadline: Instant::now() + REFRESH_TIMEOUT,
-            timeout_logged: AtomicBool::new(false),
-        };
+        let timeout = execute_timeout(operation);
+        let context = FetchContext::new(self, timeout, timeout);
         let response = context.invoke_region(logs, &args, false, operation.region.as_deref())?;
         if let Some(download) = download {
             download.commit()?;
@@ -129,15 +134,11 @@ impl AwsCli {
     }
 
     pub fn fetch(&self, service: Service, selected: Option<&str>) -> Result<Snapshot, String> {
-        if self.cancel.load(std::sync::atomic::Ordering::Relaxed) {
+        if self.cancel.load(Ordering::Relaxed) {
             return Err("cancelled".into());
         }
 
-        let context = FetchContext {
-            client: self,
-            deadline: Instant::now() + REFRESH_TIMEOUT,
-            timeout_logged: AtomicBool::new(false),
-        };
+        let context = FetchContext::new(self, REFRESH_TIMEOUT, COMMAND_TIMEOUT);
         Ok(match service {
             Service::Ec2 => ec2::fetch(&context, selected),
             Service::Ecs => ecs::fetch(&context, selected),
@@ -145,6 +146,13 @@ impl AwsCli {
             Service::S3 => s3::fetch(&context, selected),
             Service::Lambda => lambda::fetch(&context, selected),
         })
+    }
+}
+
+fn execute_timeout(operation: &Operation) -> Duration {
+    match operation.parameter {
+        Some(Parameter::UploadFilePath | Parameter::DownloadFilePath) => TRANSFER_TIMEOUT,
+        _ => COMMAND_TIMEOUT,
     }
 }
 

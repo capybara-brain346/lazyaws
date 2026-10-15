@@ -18,7 +18,7 @@ Lazy AWS shells out to your AWS CLI and shows the exact command before it runs, 
 - **Act with confirmation**: every action — including reads — shows account, target, warning, and the exact AWS CLI command before it runs.
 - **Lazygit layout**: five left panes, a detail pane, a command log, and a key bar. The focused left pane grows; the log compacts on short terminals.
 - **Keyboard and mouse**: tabs, panes, rows, filters, scrolling, action dialogs, and drag-to-copy text selection all work with keys or mouse.
-- **Live but safe refresh**: only the active service is polled every five seconds, without overlapping requests. Errors keep the last good data and mark it stale.
+- **Live but safe refresh**: only the active service is polled, five seconds after the previous refresh finishes, without overlapping requests. Errors keep the last good data and mark it stale.
 - **Themes**: press `t` to preview and apply one of 20 bundled color themes, or keep the default terminal colors.
 - **Demo mode**: `cargo run -- --demo` runs on local sample data with no AWS CLI or credentials.
 
@@ -66,7 +66,7 @@ File transfers ask for a path. A bucket upload uses the local file name as the o
 - Lazy AWS only talks to AWS through the AWS CLI: credentials in, JSON out. It disables the pager and prompts.
 - The header shows the account ID and short principal. Press `1` to see the full ARN, user ID, profile, and region. It never shows credentials or tokens.
 - The action dialog asks for confirmation before it runs anything. An interrupted or timed-out action can still finish in AWS — refresh before you try it again.
-- Timeouts and limits live in [src/config.rs](src/config.rs): 20 seconds per command, 30 seconds per snapshot, 50 seconds per refresh including identity lookup. Large lists can be incomplete; the command log shows limit notices.
+- Timeouts and limits live in [src/config.rs](src/config.rs): 20 seconds per command, 30 seconds per snapshot, and 60 minutes per S3 file upload or download. The identity lookup runs on the first refresh and again only after it fails. Large lists can be incomplete; the command log shows limit notices.
 
 ## Troubleshooting
 

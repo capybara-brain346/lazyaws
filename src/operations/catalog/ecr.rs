@@ -85,7 +85,7 @@ pub(super) fn available(panel: usize, resource: &Resource, primary: &Resource) -
                 json!({"repositoryName":repository,"force":false}),
                 id,
                 "Sets who can access this repository. AWS checks access before it accepts the policy.",
-                Some("JSON fields"),
+                Some(Parameter::JsonFields),
             ));
             actions.push(operation(
                 "Delete repository policy",
@@ -112,7 +112,7 @@ pub(super) fn available(panel: usize, resource: &Resource, primary: &Resource) -
                 json!({"repositoryName":repository}),
                 id,
                 "Sets image expiry rules. Check which images the policy can expire.",
-                Some("JSON fields"),
+                Some(Parameter::JsonFields),
             ));
             actions.push(operation(
                 "Delete lifecycle policy",
@@ -161,7 +161,7 @@ pub(super) fn available(panel: usize, resource: &Resource, primary: &Resource) -
                     json!({"resourceArn":arn}),
                     id,
                     "Enter a tags list with Key and Value. Existing matching tag keys are replaced.",
-                    Some("JSON fields"),
+                    Some(Parameter::JsonFields),
                 ));
             }
 
@@ -186,7 +186,8 @@ pub(super) fn available(panel: usize, resource: &Resource, primary: &Resource) -
                     id,
                     "Reads scan findings for this image.",
                     None,
-                ),
+                )
+                .paginated(),
                 operation(
                     "Delete image by digest",
                     "ecr",
@@ -197,15 +198,18 @@ pub(super) fn available(panel: usize, resource: &Resource, primary: &Resource) -
                     None,
                 ),
             ];
-            actions.push(operation(
-                "Describe image by digest",
-                "ecr",
-                "describe-images",
-                json!({"repositoryName":repository,"imageIds":[{"imageDigest":id}]}),
-                id,
-                "Reads metadata for this image digest.",
-                None,
-            ));
+            actions.push(
+                operation(
+                    "Describe image by digest",
+                    "ecr",
+                    "describe-images",
+                    json!({"repositoryName":repository,"imageIds":[{"imageDigest":id}]}),
+                    id,
+                    "Reads metadata for this image digest.",
+                    None,
+                )
+                .paginated(),
+            );
             actions.push(operation(
                 "Get image manifest by digest",
                 "ecr",
@@ -228,15 +232,18 @@ pub(super) fn available(panel: usize, resource: &Resource, primary: &Resource) -
                 "Removes this tag. ECR deletes the image if it has no other tags.",
                 None,
             )];
-            actions.push(operation(
-                "Describe image by tag",
-                "ecr",
-                "describe-images",
-                json!({"repositoryName":repository,"imageIds":[{"imageTag":tag}]}),
-                id,
-                "Reads metadata for this image tag.",
-                None,
-            ));
+            actions.push(
+                operation(
+                    "Describe image by tag",
+                    "ecr",
+                    "describe-images",
+                    json!({"repositoryName":repository,"imageIds":[{"imageTag":tag}]}),
+                    id,
+                    "Reads metadata for this image tag.",
+                    None,
+                )
+                .paginated(),
+            );
             actions.push(operation(
                 "Get image manifest by tag",
                 "ecr",
@@ -267,7 +274,7 @@ pub(super) fn available(panel: usize, resource: &Resource, primary: &Resource) -
                 json!({"resourceArn":arn,"tags":[{"Key":key}]}),
                 id,
                 "Replaces this tag's value. A blank value is allowed by AWS.",
-                Some("Tag value"),
+                Some(Parameter::TagValue),
             ));
             actions.push(operation(
                 "Add repository tag",
@@ -276,7 +283,7 @@ pub(super) fn available(panel: usize, resource: &Resource, primary: &Resource) -
                 json!({"resourceArn":arn}),
                 id,
                 "Adds or replaces tags on this repository. Existing matching keys are replaced.",
-                Some("JSON fields"),
+                Some(Parameter::JsonFields),
             ));
             actions
         }

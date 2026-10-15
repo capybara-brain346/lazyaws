@@ -4,7 +4,7 @@ use lazyaws::{
     app::App,
     config::{Config, SIDE_PANEL_WIDTH_DENOMINATOR, SIDE_PANEL_WIDTH_NUMERATOR},
     model::{Resource, Service, Snapshot},
-    operations::Operation,
+    operations::{Operation, Parameter},
     ui::{self, HitMap},
 };
 use ratatui::{Terminal, backend::TestBackend, style::Color};
@@ -73,7 +73,7 @@ pub fn render_with_map(app: &App, config: &Config, width: u16, height: u16) -> (
     (text, hit_map)
 }
 
-pub fn sample_operation(parameter: Option<&'static str>) -> Operation {
+pub fn sample_operation(parameter: Option<Parameter>) -> Operation {
     Operation {
         label: "Stop instance",
         service: "ec2",
@@ -83,5 +83,6 @@ pub fn sample_operation(parameter: Option<&'static str>) -> Operation {
         target: "i-123".into(),
         warning: "Stops the instance and can interrupt work.",
         parameter,
+        paginated: false,
     }
 }

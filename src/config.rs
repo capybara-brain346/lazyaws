@@ -32,6 +32,7 @@ pub const POLL_INTERVAL: Duration = Duration::from_secs(5);
 pub const EVENT_WAIT: Duration = Duration::from_millis(50);
 pub const COMMAND_TIMEOUT: Duration = Duration::from_secs(20);
 pub const REFRESH_TIMEOUT: Duration = Duration::from_secs(30);
+pub const TRANSFER_TIMEOUT: Duration = Duration::from_secs(60 * 60);
 pub const PROCESS_CHECK_INTERVAL: Duration = Duration::from_millis(20);
 pub const CLI_CONNECT_TIMEOUT_SECS: u64 = 5;
 pub const CLI_READ_TIMEOUT_SECS: u64 = 10;
@@ -40,6 +41,10 @@ pub const OUTPUT_BUFFER_BYTES: usize = 8192;
 pub const MAX_ITEMS: usize = 500;
 pub const MAX_OUTPUT_BYTES: u64 = 16 * 1024 * 1024;
 pub const S3_MAX_UPLOAD_BYTES: u64 = 5 * 1024 * 1024 * 1024;
+pub const LAMBDA_SYNC_PAYLOAD_BYTES: usize = 6 * 1024 * 1024;
+pub const LAMBDA_ASYNC_PAYLOAD_BYTES: usize = 1024 * 1024;
+pub const INVOKE_RESPONSE_LIMIT_BYTES: u64 = 8 * 1024 * 1024;
+pub const ERROR_EXCERPT_CHARS: usize = 1000;
 pub const ECS_SERVICES_BATCH: usize = 10;
 pub const ECS_TASKS_BATCH: usize = 100;
 pub const ECS_CLUSTERS_BATCH: usize = 100;
@@ -55,6 +60,9 @@ pub const COMPACT_SIDE_PANEL_HEIGHT: u16 = 3;
 pub const NORMAL_LAYOUT_MIN_HEIGHT: u16 = 28;
 pub const COMPACT_LAYOUT_MIN_HEIGHT: u16 = 21;
 pub const SERVICE_BAR_HEIGHT: u16 = 3;
+pub const APP_TITLE: &str = " lazyaws ";
+pub const ACTIONS_KEY_LABEL: &str = " a ";
+pub const ACTIONS_KEY_TEXT: &str = "actions  ";
 pub const FOOTER_HEIGHT: u16 = 1;
 pub const MIN_WIDTH: u16 = 60;
 pub const MIN_HEIGHT: u16 = 20;
@@ -106,14 +114,17 @@ pub enum Cli {
 
 impl Config {
     pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Cli, String> {
+        Self::parse_with_env(args, |name| std::env::var(name).ok())
+    }
+
+    pub fn parse_with_env(
+        args: impl IntoIterator<Item = String>,
+        env: impl Fn(&str) -> Option<String>,
+    ) -> Result<Cli, String> {
         let mut config = Self {
-            aws_bin: std::env::var("LAZYAWS_AWS_BIN").unwrap_or_else(|_| DEFAULT_AWS_BIN.into()),
-            profile: std::env::var("AWS_PROFILE")
-                .ok()
-                .or_else(|| std::env::var("AWS_DEFAULT_PROFILE").ok()),
-            region: std::env::var("AWS_REGION")
-                .ok()
-                .or_else(|| std::env::var("AWS_DEFAULT_REGION").ok()),
+            aws_bin: env("LAZYAWS_AWS_BIN").unwrap_or_else(|| DEFAULT_AWS_BIN.into()),
+            profile: env("AWS_PROFILE").or_else(|| env("AWS_DEFAULT_PROFILE")),
+            region: env("AWS_REGION").or_else(|| env("AWS_DEFAULT_REGION")),
             ..Self::default()
         };
         let mut args = args.into_iter();
@@ -153,15 +164,23 @@ mod tests {
 
     #[test]
     fn parses_context_and_rejects_missing_or_unknown_options() {
-        let args = ["--demo", "--profile", "dev", "--region", "eu-west-1"];
-        let Cli::Run(config) = Config::parse(args.map(String::from)).unwrap() else {
+        let env = |name: &str| (name == "AWS_DEFAULT_REGION").then(|| "us-east-1".to_string());
+        let parse =
+            |args: &[&str]| Config::parse_with_env(args.iter().map(|arg| arg.to_string()), env);
+
+        let Cli::Run(config) = parse(&["--demo", "--profile", "dev"]).unwrap() else {
             panic!("expected run configuration");
         };
         assert!(config.demo);
         assert_eq!(config.profile.as_deref(), Some("dev"));
+        assert_eq!(config.region.as_deref(), Some("us-east-1"));
+
+        let Cli::Run(config) = parse(&["--region", "eu-west-1"]).unwrap() else {
+            panic!("expected run configuration");
+        };
         assert_eq!(config.region.as_deref(), Some("eu-west-1"));
-        assert!(Config::parse(["--profile".into()]).is_err());
-        assert!(Config::parse(["--region".into(), "--demo".into()]).is_err());
-        assert!(Config::parse(["--unknown".into()]).is_err());
+        assert!(parse(&["--profile"]).is_err());
+        assert!(parse(&["--region", "--demo"]).is_err());
+        assert!(parse(&["--unknown"]).is_err());
     }
 }

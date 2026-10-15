@@ -35,7 +35,7 @@ fn function_actions(id: &str, function_arn: &str) -> Vec<Operation> {
             json!({"FunctionName": id}),
             id,
             "Invokes the function synchronously and shows its response payload in Details. An empty input sends no payload.",
-            Some("Invoke payload"),
+            Some(Parameter::InvokePayload(InvokeMode::Sync)),
         ),
         operation(
             "Invoke with log tail",
@@ -44,7 +44,7 @@ fn function_actions(id: &str, function_arn: &str) -> Vec<Operation> {
             json!({"FunctionName": id}),
             id,
             "Invokes synchronously and returns the last 4 KB of logs decoded in Details. An empty input sends no payload.",
-            Some("Invoke payload with logs"),
+            Some(Parameter::InvokePayload(InvokeMode::SyncWithLogs)),
         ),
         operation(
             "Invoke asynchronously",
@@ -53,7 +53,7 @@ fn function_actions(id: &str, function_arn: &str) -> Vec<Operation> {
             json!({"FunctionName": id}),
             id,
             "Invokes without waiting for a response. Use this for Event invocations up to 1 MB of payload.",
-            Some("Invoke payload async"),
+            Some(Parameter::InvokePayload(InvokeMode::Async)),
         ),
         operation(
             "Get function",
@@ -117,7 +117,8 @@ fn function_actions(id: &str, function_arn: &str) -> Vec<Operation> {
             id,
             "Lists published versions plus $LATEST for this function.",
             None,
-        ),
+        )
+        .paginated(),
         operation(
             "List aliases",
             "lambda",
@@ -126,7 +127,8 @@ fn function_actions(id: &str, function_arn: &str) -> Vec<Operation> {
             id,
             "Lists aliases that point at this function's versions.",
             None,
-        ),
+        )
+        .paginated(),
         operation(
             "List event source mappings",
             "lambda",
@@ -135,7 +137,8 @@ fn function_actions(id: &str, function_arn: &str) -> Vec<Operation> {
             id,
             "Lists stream and queue mappings that invoke this function.",
             None,
-        ),
+        )
+        .paginated(),
         operation(
             "List async invoke configs",
             "lambda",
@@ -144,7 +147,8 @@ fn function_actions(id: &str, function_arn: &str) -> Vec<Operation> {
             id,
             "Lists retry and destination settings for async invocations.",
             None,
-        ),
+        )
+        .paginated(),
         operation(
             "List URL configs",
             "lambda",
@@ -153,7 +157,8 @@ fn function_actions(id: &str, function_arn: &str) -> Vec<Operation> {
             id,
             "Lists function URL endpoints for this function.",
             None,
-        ),
+        )
+        .paginated(),
         operation(
             "Publish version",
             "lambda",
@@ -161,7 +166,7 @@ fn function_actions(id: &str, function_arn: &str) -> Vec<Operation> {
             json!({"FunctionName": id}),
             id,
             "Publishes a new immutable version from $LATEST code and configuration.",
-            Some("JSON fields"),
+            Some(Parameter::JsonFields),
         ),
         operation(
             "Update configuration",
@@ -170,7 +175,7 @@ fn function_actions(id: &str, function_arn: &str) -> Vec<Operation> {
             json!({"FunctionName": id}),
             id,
             "Updates settings such as MemorySize, Timeout, or Environment. Enter only changed fields; the function restarts.",
-            Some("JSON fields"),
+            Some(Parameter::JsonFields),
         ),
         operation(
             "Set reserved concurrency",
@@ -179,7 +184,7 @@ fn function_actions(id: &str, function_arn: &str) -> Vec<Operation> {
             json!({"FunctionName": id}),
             id,
             "Limits simultaneous executions. Zero blocks all invocations; use Remove to clear the limit.",
-            Some("Reserved concurrency"),
+            Some(Parameter::ReservedConcurrency),
         ),
         operation(
             "Remove reserved concurrency",
@@ -197,7 +202,7 @@ fn function_actions(id: &str, function_arn: &str) -> Vec<Operation> {
             json!({"FunctionName": id}),
             id,
             "Creates an alias. Enter Name and FunctionVersion, for example {\"Name\":\"prod\",\"FunctionVersion\":\"3\"}.",
-            Some("JSON fields"),
+            Some(Parameter::JsonFields),
         ),
         operation(
             "Add function tags",
@@ -206,7 +211,7 @@ fn function_actions(id: &str, function_arn: &str) -> Vec<Operation> {
             json!({"Resource": function_arn}),
             id,
             "Adds tags. Enter a Tags object such as {\"Tags\":{\"Team\":\"platform\"}}. Matching keys are replaced.",
-            Some("JSON fields"),
+            Some(Parameter::JsonFields),
         ),
         operation(
             "Delete function",
@@ -242,7 +247,7 @@ fn version_actions(
             json!({"FunctionName": version_arn}),
             version_arn,
             "Invokes this published version synchronously. An empty input sends no payload.",
-            Some("Invoke payload"),
+            Some(Parameter::InvokePayload(InvokeMode::Sync)),
         ),
         operation(
             "Get version",
@@ -281,7 +286,7 @@ fn version_actions(
                 json!({"FunctionName": function_name, "Qualifier": qualifier}),
                 version_arn,
                 "Keeps execution environments warm. Provisioned capacity adds charges even without invocations.",
-                Some("Provisioned concurrency"),
+                Some(Parameter::ProvisionedConcurrency),
             ),
             operation(
                 "Remove provisioned concurrency",
@@ -319,7 +324,7 @@ fn alias_actions(resource: &Resource, _function_arn: &str, function_name: &str) 
             json!({"FunctionName": alias_arn}),
             alias_arn,
             "Invokes the version this alias points at. An empty input sends no payload.",
-            Some("Invoke payload"),
+            Some(Parameter::InvokePayload(InvokeMode::Sync)),
         ),
         operation(
             "Get alias",
@@ -337,7 +342,7 @@ fn alias_actions(resource: &Resource, _function_arn: &str, function_name: &str) 
             json!({"FunctionName": function_name, "Name": alias}),
             alias_arn,
             "Points this alias at another version. Enter a version number or $LATEST.",
-            Some("Alias version"),
+            Some(Parameter::AliasVersion),
         ),
         operation(
             "Get provisioned concurrency",
@@ -355,7 +360,7 @@ fn alias_actions(resource: &Resource, _function_arn: &str, function_name: &str) 
             json!({"FunctionName": function_name, "Qualifier": alias}),
             alias_arn,
             "Keeps execution environments warm. Provisioned capacity adds charges even without invocations.",
-            Some("Provisioned concurrency"),
+            Some(Parameter::ProvisionedConcurrency),
         ),
         operation(
             "Delete alias",
@@ -388,7 +393,7 @@ fn tag_actions(resource: &Resource, function_arn: &str) -> Vec<Operation> {
             json!({"Resource": function_arn, "Tags": {key: ""}}),
             resource.id.as_str(),
             "Replaces this tag's value. An empty value is allowed.",
-            Some("Lambda tag value"),
+            Some(Parameter::LambdaTagValue),
         ),
         operation(
             "Add function tags",
@@ -397,7 +402,7 @@ fn tag_actions(resource: &Resource, function_arn: &str) -> Vec<Operation> {
             json!({"Resource": function_arn}),
             resource.id.as_str(),
             "Adds tags. Enter a Tags object such as {\"Tags\":{\"Team\":\"platform\"}}.",
-            Some("JSON fields"),
+            Some(Parameter::JsonFields),
         ),
     ]
 }

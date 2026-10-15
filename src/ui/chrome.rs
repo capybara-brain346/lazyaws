@@ -7,14 +7,14 @@ use ratatui::{
 };
 
 use crate::{
-    config::{HELP_HEIGHT, HELP_WIDTH},
+    config::{ACTIONS_KEY_LABEL, ACTIONS_KEY_TEXT, HELP_HEIGHT, HELP_WIDTH},
     theme::Theme,
 };
 
 pub(super) fn draw_key_bar(frame: &mut Frame, area: Rect, theme: &Theme) {
     let line = Line::from(vec![
-        Span::styled(" a ", Style::default().fg(theme.key)),
-        Span::raw("actions  "),
+        Span::styled(ACTIONS_KEY_LABEL, Style::default().fg(theme.key)),
+        Span::raw(ACTIONS_KEY_TEXT),
         Span::styled(" 1 ", Style::default().fg(theme.key)),
         Span::raw("status  "),
         Span::styled("2–5", Style::default().fg(theme.key)),

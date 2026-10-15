@@ -134,8 +134,10 @@ Keep a selected resource by ID across refreshes. Clear related data when its
 parent selection changes. Keep old data on a query error only when its parent
 context is still valid.
 
-AWS actions have a 20-second command time limit. A timed-out action can still
-finish in AWS. Refresh the resource before you try it again.
+AWS actions have a 20-second command time limit. S3 uploads and downloads use
+`TRANSFER_TIMEOUT` (60 minutes). A timed-out action can still finish in AWS.
+`aws::outcome_unknown` identifies the Lazy AWS timeout and the AWS CLI read
+timeout. The action output then tells the user to refresh before a retry.
 
 No data migration or code generation is required.
 
@@ -269,3 +271,37 @@ A focused selected row uses `selection_text` on `selection_background`. An
 unfocused selected row uses `text` on `inactive_selection_background`. Thus a
 preset can use a bright accent for the focused row and keep the unfocused row
 readable.
+
+## Typed inputs, focus, and timeouts
+
+`Operation::parameter` is a `Parameter` enum. `Parameter::label` supplies the
+dialog text. The compiler checks each parameter name. Each catalog entry that
+uses CLI pagination calls `.paginated()`, and `Operation::args` then adds
+`--max-items`. `Operation::initial_input` fills the dialog field when a value is
+known, such as the current ECS desired count.
+
+`App::focus` is a `Focus` enum: `Status`, `List(panel)`, `Detail`, or `Log`.
+List panels use the 0-based index of `Snapshot::panels` everywhere.
+`MouseTarget::Row` holds the panel and the row index.
+
+The action dialog keeps its command preview in `ActionDialog::preview`. The
+dialog updates it when the action or input changes, because `Operation::args`
+can read the filesystem. The draw path only reads the stored value.
+
+```text
+Before
+ui::draw_selected_action -> Operation::args            (each frame)
+runtime worker -> AwsCli::identity                      (each refresh)
+AwsCli::execute -> run_process(COMMAND_TIMEOUT)         (transfers too)
+
+After
+~ App::handle_action_key / choose_action -> ActionDialog::refresh_preview -> Operation::args
+~ ui::draw_selected_action -> ActionDialog::preview
+~ runtime worker -> AwsCli::identity                    (until it succeeds)
+~ AwsCli::execute -> execute_timeout -> run_process(TRANSFER_TIMEOUT for S3 files)
++ runtime::operation_output / operation_log -> aws::outcome_unknown
+```
+
+The poll timer starts when the current refresh response arrives, not when the
+request is sent. A slow service therefore does not start the next refresh at
+once.

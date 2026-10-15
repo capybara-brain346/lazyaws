@@ -1,5 +1,7 @@
 use serde_json::Value;
 
+pub const PANEL_COUNT: usize = 4;
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Service {
     Ec2,
@@ -29,7 +31,15 @@ impl Service {
             .unwrap_or(0)
     }
 
-    pub fn panel_titles(self) -> [&'static str; 4] {
+    pub fn next(self) -> Self {
+        Self::ALL[(self.index() + 1) % Self::ALL.len()]
+    }
+
+    pub fn previous(self) -> Self {
+        Self::ALL[(self.index() + Self::ALL.len() - 1) % Self::ALL.len()]
+    }
+
+    pub fn panel_titles(self) -> [&'static str; PANEL_COUNT] {
         match self {
             Self::Ec2 => ["Instances", "Volumes", "Security groups", "Tags"],
             Self::Ecs => ["Clusters", "Services", "Tasks", "Task definitions"],
@@ -48,7 +58,7 @@ pub struct Resource {
     pub detail: Value,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct Panel {
     pub title: String,
     pub items: Vec<Resource>,
@@ -58,7 +68,7 @@ pub struct Panel {
 #[derive(Clone, Debug)]
 pub struct Snapshot {
     pub service: Service,
-    pub panels: [Panel; 4],
+    pub panels: [Panel; PANEL_COUNT],
     pub logs: Vec<String>,
 }
 

@@ -4,7 +4,7 @@ use crate::model::{Resource, Snapshot};
 
 use super::{
     FetchContext,
-    common::{array, optional_string, panel_error, resource, selected_id, sort_and_limit, string},
+    common::{array, optional_string, panel_error, resource, selected_id, set_panel, string},
 };
 
 pub(super) fn fetch(cli: &FetchContext<'_>, selected: Option<&str>) -> Snapshot {
@@ -21,15 +21,8 @@ pub(super) fn fetch(cli: &FetchContext<'_>, selected: Option<&str>) -> Snapshot 
         }
     };
 
-    match functions(&response) {
-        Ok(items) => snapshot.panels[0].items = items,
-        Err(error) => panel_error(&mut snapshot, 0, error),
-    }
-    sort_and_limit(
-        &mut snapshot.panels[0],
-        &mut snapshot.logs,
-        "Lambda functions",
-    );
+    let result = functions(&response);
+    set_panel(&mut snapshot, 0, result, "Lambda functions");
     let Some(function_arn) = selected_id(&snapshot.panels[0].items, selected) else {
         return snapshot;
     };
@@ -40,18 +33,10 @@ pub(super) fn fetch(cli: &FetchContext<'_>, selected: Option<&str>) -> Snapshot 
         "--function-name".into(),
         function_arn.clone(),
     ];
-    match cli
+    let result = cli
         .invoke(&mut snapshot.logs, &versions_command, true)
-        .and_then(|response| versions(&response))
-    {
-        Ok(items) => snapshot.panels[1].items = items,
-        Err(error) => panel_error(&mut snapshot, 1, error),
-    }
-    sort_and_limit(
-        &mut snapshot.panels[1],
-        &mut snapshot.logs,
-        "Lambda versions",
-    );
+        .and_then(|response| versions(&response));
+    set_panel(&mut snapshot, 1, result, "Lambda versions");
 
     let aliases_command = vec![
         "lambda".into(),
@@ -59,18 +44,10 @@ pub(super) fn fetch(cli: &FetchContext<'_>, selected: Option<&str>) -> Snapshot 
         "--function-name".into(),
         function_arn.clone(),
     ];
-    match cli
+    let result = cli
         .invoke(&mut snapshot.logs, &aliases_command, true)
-        .and_then(|response| aliases(&response))
-    {
-        Ok(items) => snapshot.panels[2].items = items,
-        Err(error) => panel_error(&mut snapshot, 2, error),
-    }
-    sort_and_limit(
-        &mut snapshot.panels[2],
-        &mut snapshot.logs,
-        "Lambda aliases",
-    );
+        .and_then(|response| aliases(&response));
+    set_panel(&mut snapshot, 2, result, "Lambda aliases");
 
     let tags_command = vec![
         "lambda".into(),
@@ -78,14 +55,10 @@ pub(super) fn fetch(cli: &FetchContext<'_>, selected: Option<&str>) -> Snapshot 
         "--resource".into(),
         function_arn.clone(),
     ];
-    match cli
+    let result = cli
         .invoke(&mut snapshot.logs, &tags_command, false)
-        .and_then(|response| tags(&response))
-    {
-        Ok(items) => snapshot.panels[3].items = items,
-        Err(error) => panel_error(&mut snapshot, 3, error),
-    }
-    sort_and_limit(&mut snapshot.panels[3], &mut snapshot.logs, "Lambda tags");
+        .and_then(|response| tags(&response));
+    set_panel(&mut snapshot, 3, result, "Lambda tags");
     snapshot
 }
 

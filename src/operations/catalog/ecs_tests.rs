@@ -20,7 +20,7 @@ fn cluster_settings_action_requires_an_active_cluster_and_keeps_cluster_fixed() 
     assert_eq!(actions.len(), 4);
     assert_eq!(actions[0].name, "delete-cluster");
     assert_eq!(actions[1].name, "update-cluster-settings");
-    assert_eq!(actions[1].parameter, Some("JSON fields"));
+    assert_eq!(actions[1].parameter, Some(Parameter::JsonFields));
     assert_eq!(actions[1].input["cluster"], cluster.id);
     assert_eq!(actions[2].name, "list-services");
     assert_eq!(actions[2].input["cluster"], cluster.id);
@@ -54,7 +54,7 @@ fn service_actions_capture_the_cluster_and_service_for_deployments_and_rollback(
     assert_eq!(actions[2].input["force"], false);
 
     let deploy = &actions[3];
-    assert_eq!(deploy.parameter, Some("Task definition revision"));
+    assert_eq!(deploy.parameter, Some(Parameter::TaskDefinitionRevision));
     assert_eq!(deploy.input["cluster"], cluster.id);
     assert_eq!(deploy.input["service"], "api");
 
@@ -64,7 +64,7 @@ fn service_actions_capture_the_cluster_and_service_for_deployments_and_rollback(
     assert_eq!(list.input["service"], service.id);
 
     let rollback = &actions[5];
-    assert_eq!(rollback.parameter, Some("Service deployment ARN"));
+    assert_eq!(rollback.parameter, Some(Parameter::ServiceDeploymentArn));
     assert_eq!(rollback.target, service.id);
     assert_eq!(rollback.input["stopType"], "ROLLBACK");
 
@@ -93,7 +93,7 @@ fn task_actions_keep_the_stop_gate_and_capture_run_task_context() {
         ["stop-task", "run-task", "describe-task-definition"]
     );
     let run = &actions[1];
-    assert_eq!(run.parameter, Some("JSON fields"));
+    assert_eq!(run.parameter, Some(Parameter::JsonFields));
     assert_eq!(run.input["cluster"], cluster.id);
     assert_eq!(
         run.input["taskDefinition"],
@@ -131,7 +131,7 @@ fn task_definition_actions_keep_status_gates_and_offer_reads() {
     assert_eq!(actions.len(), 4);
     assert_eq!(actions[0].name, "deregister-task-definition");
     assert_eq!(actions[1].name, "run-task");
-    assert_eq!(actions[1].parameter, Some("JSON fields"));
+    assert_eq!(actions[1].parameter, Some(Parameter::JsonFields));
     assert_eq!(actions[1].input["cluster"], cluster.id);
     assert_eq!(actions[1].input["taskDefinition"], definition.id);
     assert_eq!(actions[2].name, "list-task-definitions");

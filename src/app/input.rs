@@ -4,11 +4,11 @@ use crossterm::event::{
 
 use crate::{
     config::DETAIL_SCROLL_STEP,
-    model::Service,
+    model::{PANEL_COUNT, Service, Snapshot},
     ui::{HitMap, MouseTarget},
 };
 
-use super::App;
+use super::{App, Focus};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Action {
@@ -68,89 +68,79 @@ impl App {
                 self.open_themes();
                 Action::None
             }
-            KeyCode::Char('[') => self.change_service(Service::ALL[(self.service.index() + 4) % 5]),
-            KeyCode::Char(']') => self.change_service(Service::ALL[(self.service.index() + 1) % 5]),
+            KeyCode::Char('[') => self.change_service(self.service.previous()),
+            KeyCode::Char(']') => self.change_service(self.service.next()),
             KeyCode::Left if key.modifiers.contains(KeyModifiers::SHIFT) => {
-                self.change_service(Service::ALL[(self.service.index() + 4) % 5])
+                self.change_service(self.service.previous())
             }
             KeyCode::Right if key.modifiers.contains(KeyModifiers::SHIFT) => {
-                self.change_service(Service::ALL[(self.service.index() + 1) % 5])
+                self.change_service(self.service.next())
             }
             KeyCode::Char('?') => {
                 self.help = !self.help;
                 Action::None
             }
             KeyCode::Char('/') => {
-                if (1..=4).contains(&self.focus) {
+                if let Some(panel) = self.focus.list() {
                     self.filter.clear();
-                    self.filter_panel = self.focus - 1;
+                    self.filter_panel = panel;
                     self.save_current_service_state();
                     self.filtering = true;
                 }
                 Action::None
             }
             KeyCode::Enter => {
-                if (1..=4).contains(&self.focus) {
-                    self.detail_panel = self.focus - 1;
+                if let Some(panel) = self.focus.list() {
+                    self.detail_panel = panel;
                     self.detail_scroll = 0;
-                    self.focus = 5;
+                    self.focus = Focus::Detail;
                 }
                 Action::None
             }
             KeyCode::Esc => {
-                if self.help {
-                    self.help = false;
-                } else if self.focus == 5 {
-                    self.focus = self.detail_panel + 1;
+                if self.focus == Focus::Detail {
+                    self.focus = Focus::List(self.detail_panel);
                     self.detail_scroll = 0;
                 } else {
-                    self.focus = 0;
+                    self.focus = Focus::Status;
                 }
                 Action::None
             }
-            KeyCode::Tab => {
+            KeyCode::Tab | KeyCode::Char('l') | KeyCode::Right => {
                 self.cycle_panel(1);
                 Action::None
             }
-            KeyCode::BackTab => {
+            KeyCode::BackTab | KeyCode::Char('h') | KeyCode::Left => {
                 self.cycle_panel(-1);
-                Action::None
-            }
-            KeyCode::Char('h') | KeyCode::Left => {
-                self.cycle_panel(-1);
-                Action::None
-            }
-            KeyCode::Char('l') | KeyCode::Right => {
-                self.cycle_panel(1);
                 Action::None
             }
             KeyCode::Char('j') | KeyCode::Down => self.move_selection(1),
             KeyCode::Char('k') | KeyCode::Up => self.move_selection(-1),
             KeyCode::Char('1') => {
-                self.focus = 0;
+                self.focus = Focus::Status;
                 Action::None
             }
             KeyCode::Char(character @ '2'..='5') => {
-                self.focus = character as usize - '1' as usize;
+                self.focus = Focus::List(character as usize - '2' as usize);
                 Action::None
             }
             KeyCode::Char('0') => {
-                if (1..=4).contains(&self.focus) {
-                    self.detail_panel = self.focus - 1;
+                if let Some(panel) = self.focus.list() {
+                    self.detail_panel = panel;
                 }
-                self.focus = 5;
+                self.focus = Focus::Detail;
                 Action::None
             }
             KeyCode::Char('6') => {
-                self.focus = 6;
+                self.focus = Focus::Log;
                 Action::None
             }
-            KeyCode::PageUp if self.focus == 5 => {
-                self.detail_scroll = self.detail_scroll.saturating_sub(DETAIL_SCROLL_STEP);
+            KeyCode::PageUp if self.focus == Focus::Detail => {
+                self.scroll_detail(-1);
                 Action::None
             }
-            KeyCode::PageDown if self.focus == 5 => {
-                self.detail_scroll = self.detail_scroll.saturating_add(DETAIL_SCROLL_STEP);
+            KeyCode::PageDown if self.focus == Focus::Detail => {
+                self.scroll_detail(1);
                 Action::None
             }
             _ => Action::None,
@@ -199,7 +189,8 @@ impl App {
         match event.kind {
             MouseEventKind::ScrollUp | MouseEventKind::ScrollDown => {
                 let focus = match target {
-                    MouseTarget::Pane(focus) | MouseTarget::Row { focus, .. } => focus,
+                    MouseTarget::Pane(focus) => focus,
+                    MouseTarget::Row { panel, .. } => Focus::List(panel),
                     _ => return Action::None,
                 };
                 self.focus_pane(focus);
@@ -208,12 +199,8 @@ impl App {
                 } else {
                     1
                 };
-                if focus == 5 {
-                    if delta < 0 {
-                        self.detail_scroll = self.detail_scroll.saturating_sub(DETAIL_SCROLL_STEP);
-                    } else {
-                        self.detail_scroll = self.detail_scroll.saturating_add(DETAIL_SCROLL_STEP);
-                    }
+                if focus == Focus::Detail {
+                    self.scroll_detail(delta);
                     Action::None
                 } else {
                     self.move_selection(delta)
@@ -229,20 +216,12 @@ impl App {
                     self.focus_pane(focus);
                     Action::None
                 }
-                MouseTarget::Row {
-                    panel,
-                    focus,
-                    index,
-                } => self.select_row(panel, focus, index),
+                MouseTarget::Row { panel, index } => self.select_row(panel, index),
                 _ => Action::None,
             },
             MouseEventKind::Down(MouseButton::Right) => match target {
-                MouseTarget::Row {
-                    panel,
-                    focus,
-                    index,
-                } => {
-                    let action = self.select_row(panel, focus, index);
+                MouseTarget::Row { panel, index } => {
+                    let action = self.select_row(panel, index);
                     if action == Action::None {
                         self.open_actions_for(panel, index);
                     }
@@ -266,7 +245,11 @@ impl App {
                 self.filter.pop();
                 return self.normalize_filtered_selection();
             }
-            KeyCode::Char(character) => {
+            KeyCode::Char(character)
+                if !key
+                    .modifiers
+                    .intersects(KeyModifiers::CONTROL | KeyModifiers::ALT) =>
+            {
                 self.filter.push(character);
                 return self.normalize_filtered_selection();
             }
@@ -287,8 +270,8 @@ impl App {
         self.filter = state.filter;
         self.filter_panel = state.filter_panel;
         self.filtering = false;
-        self.snapshot = crate::model::Snapshot::empty(service);
-        self.focus = 1;
+        self.snapshot = Snapshot::empty(service);
+        self.focus = Focus::List(0);
         self.detail_panel = 0;
         self.detail_scroll = 0;
         self.error = None;
@@ -298,12 +281,11 @@ impl App {
     }
 
     fn move_selection(&mut self, delta: isize) -> Action {
-        if !(1..=4).contains(&self.focus) {
+        let Some(panel) = self.focus.list() else {
             return Action::None;
-        }
+        };
 
-        let panel = self.focus - 1;
-        let visible = self.visible_indices(self.focus);
+        let visible = self.visible_indices(panel);
         if visible.is_empty() {
             return Action::None;
         }
@@ -323,23 +305,15 @@ impl App {
             self.operation_output = None;
         }
 
-        if panel == 0 && old_primary.as_deref() != self.selected_primary() {
-            self.clear_related();
-            self.loading = true;
-            self.save_current_service_state();
-            Action::Refresh
-        } else {
-            self.save_current_service_state();
-            Action::None
-        }
+        self.finish_selection(panel, old_primary)
     }
 
     fn normalize_filtered_selection(&mut self) -> Action {
-        let panel = match self.focus {
-            1..=4 => self.focus - 1,
-            _ => return Action::None,
+        let Some(panel) = self.focus.list() else {
+            return Action::None;
         };
-        let visible = self.visible_indices(self.focus);
+
+        let visible = self.visible_indices(panel);
         if visible.is_empty() || visible.contains(&self.selected[panel]) {
             self.save_current_service_state();
             return Action::None;
@@ -349,23 +323,15 @@ impl App {
         self.selected[panel] = visible[0];
         self.operation_output = None;
         self.detail_scroll = 0;
-        if panel == 0 && old_primary.as_deref() != self.selected_primary() {
-            self.clear_related();
-            self.loading = true;
-            self.save_current_service_state();
-            Action::Refresh
-        } else {
-            self.save_current_service_state();
-            Action::None
-        }
+        self.finish_selection(panel, old_primary)
     }
 
-    fn select_row(&mut self, panel: usize, focus: usize, index: usize) -> Action {
-        if panel >= 4 || focus != panel + 1 || !self.visible_indices(focus).contains(&index) {
+    fn select_row(&mut self, panel: usize, index: usize) -> Action {
+        if panel >= PANEL_COUNT || !self.visible_indices(panel).contains(&index) {
             return Action::None;
         }
 
-        self.focus = focus;
+        self.focus = Focus::List(panel);
         let old_primary = self.selected_primary().map(str::to_owned);
         if self.selected[panel] != index {
             self.selected[panel] = index;
@@ -373,33 +339,41 @@ impl App {
             self.detail_scroll = 0;
         }
 
-        if panel == 0 && old_primary.as_deref() != self.selected_primary() {
+        self.finish_selection(panel, old_primary)
+    }
+
+    // A new primary resource invalidates the related panels, so they must load again.
+    fn finish_selection(&mut self, panel: usize, old_primary: Option<String>) -> Action {
+        let action = if panel == 0 && old_primary.as_deref() != self.selected_primary() {
             self.clear_related();
             self.loading = true;
-            self.save_current_service_state();
             Action::Refresh
         } else {
-            self.save_current_service_state();
             Action::None
-        }
+        };
+        self.save_current_service_state();
+        action
     }
 
     fn cycle_panel(&mut self, delta: isize) {
-        let current = match self.focus {
-            0..=4 => self.focus,
-            5 => self.detail_panel + 1,
-            _ => 0,
-        };
-        self.focus = (current as isize + delta).rem_euclid(5) as usize;
+        self.focus = self.focus.cycle(delta, self.detail_panel);
     }
 
-    fn focus_pane(&mut self, focus: usize) {
-        if focus == 5 && self.focus != 5 {
-            if (1..=4).contains(&self.focus) {
-                self.detail_panel = self.focus - 1;
+    fn focus_pane(&mut self, focus: Focus) {
+        if focus == Focus::Detail && self.focus != Focus::Detail {
+            if let Some(panel) = self.focus.list() {
+                self.detail_panel = panel;
             }
             self.detail_scroll = 0;
         }
         self.focus = focus;
+    }
+
+    fn scroll_detail(&mut self, delta: isize) {
+        self.detail_scroll = if delta < 0 {
+            self.detail_scroll.saturating_sub(DETAIL_SCROLL_STEP)
+        } else {
+            self.detail_scroll.saturating_add(DETAIL_SCROLL_STEP)
+        };
     }
 }
