@@ -1,9 +1,12 @@
 # Lazy AWS
 
+<img width="1774" height="887" alt="lazyaws" src="https://github.com/user-attachments/assets/87cd581d-2078-4a0b-a615-58de25cf0ad9" />
+
 Lazy AWS is a Rust terminal interface for EC2, ECS, ECR, S3, and Lambda. It uses a
 [Lazygit layout](https://github.com/jesseduffield/lazygit/blob/master/docs/Config.md)
 with five panes, a detail pane, a command log, and a key bar. The bottom left
 pane grows when it has focus. The command log is compact on short terminals.
+
 See [a captured demo screen](docs/demo.txt).
 
 Lazy AWS shows resource lists, filters, and JSON details. It also runs the
