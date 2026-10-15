@@ -1,38 +1,78 @@
-# Lazy AWS
+<div align="center">
 
 <img width="1774" height="887" alt="lazyaws" src="https://github.com/user-attachments/assets/87cd581d-2078-4a0b-a615-58de25cf0ad9" />
 
-Lazy AWS is a Rust terminal interface for EC2, ECS, ECR, S3, and Lambda. It uses a
-[Lazygit layout](https://github.com/jesseduffield/lazygit/blob/master/docs/Config.md)
-with five panes, a detail pane, a command log, and a key bar. The bottom left
-pane grows when it has focus. The command log is compact on short terminals.
+# Lazy AWS
 
-See [a captured demo screen](docs/demo.txt).
+**Lazygit-style terminal UI for AWS.** Browse EC2, ECS, ECR, S3, and Lambda, filter lists, inspect JSON, and run confirmed actions — all from one keyboard-driven screen.
 
-Lazy AWS shows resource lists, filters, and JSON details. It also runs the
-actions in [the service guide](docs/services.md). The
-[AWS CLI action inventory](docs/aws-cli-actions.md) lists commands for all tabs
-and marks commands that remain CLI-only. The action dialog shows the
-account, target, warning, and command before it runs.
+Lazy AWS shells out to your AWS CLI and shows the exact command before it runs, so there are no hidden API calls. Try it with local sample data, then point it at your account.
 
-## Run
+[Service guide](docs/services.md) · [AWS CLI action inventory](docs/aws-cli-actions.md) · [Captured demo](docs/demo.txt)
 
-Install Rust and AWS CLI v2. Configure AWS credentials through the AWS CLI.
-Use an IAM identity with the permissions in
-[the service guide](docs/services.md).
+</div>
 
-```sh
-cargo run -- --demo
-cargo run -- --profile dev --region eu-west-1
-cargo build --release
-./target/release/lazyaws --help
-```
+## Features
 
-Demo mode uses local sample data. It needs no AWS CLI or credentials.
-Use `--aws-bin PATH` or `LAZYAWS_AWS_BIN` to select an AWS executable.
-Without `--profile` or `--region`, the AWS CLI uses its normal configuration
-and environment variables. Sign in with the AWS CLI before you start Lazy AWS
-if your profile uses SSO.
+- **Browse anywhere**: five service tabs (EC2, ECS, ECR, S3, Lambda) with resource lists, related resources, filters, and JSON details.
+- **Act with confirmation**: every action — including reads — shows account, target, warning, and the exact AWS CLI command before it runs.
+- **Lazygit layout**: five left panes, a detail pane, a command log, and a key bar. The focused left pane grows; the log compacts on short terminals.
+- **Keyboard and mouse**: tabs, panes, rows, filters, scrolling, action dialogs, and drag-to-copy text selection all work with keys or mouse.
+- **Live but safe refresh**: only the active service is polled every five seconds, without overlapping requests. Errors keep the last good data and mark it stale.
+- **Demo mode**: `cargo run -- --demo` runs on local sample data with no AWS CLI or credentials.
+
+## Requirements
+
+- Rust toolchain
+- AWS CLI v2
+- Configured AWS credentials with the permissions in [the service guide](docs/services.md)
+
+## Getting started
+
+1. Install Rust and AWS CLI v2, and configure credentials through the AWS CLI.
+2. Preview with sample data (no AWS needed):
+   ```sh
+   cargo run -- --demo
+   ```
+3. Run against your account:
+   ```sh
+   cargo run -- --profile dev --region eu-west-1
+   ```
+4. Click into any list, press `a` on a row, pick an action, review the command, and press `y` to run it.
+5. Build the release binary when you are ready:
+   ```sh
+   cargo build --release
+   ./target/release/lazyaws --help
+   ```
+
+Sign in with the AWS CLI before you start if your profile uses SSO.
+
+## Use your own AWS setup
+
+Without flags, Lazy AWS uses the AWS CLI's normal configuration and environment variables.
+
+| Option | Result |
+| --- | --- |
+| `--profile NAME` | Pass a profile to each AWS command |
+| `--region REGION` | Pass a region to each AWS command |
+| `--aws-bin PATH` / `LAZYAWS_AWS_BIN` | Select an AWS executable |
+| `AWS_PROFILE` / `AWS_REGION` | Passed through when no flag overrides them |
+
+File transfers ask for a path. A bucket upload uses the local file name as the object key; an object upload uses the selected key. A download fails if the local destination already exists. See the service guide for file limits and the full action list.
+
+## Safety
+
+- Lazy AWS only talks to AWS through the AWS CLI: credentials in, JSON out. It disables the pager and prompts.
+- The header shows the account ID and short principal. Press `1` to see the full ARN, user ID, profile, and region. It never shows credentials or tokens.
+- The action dialog asks for confirmation before it runs anything. An interrupted or timed-out action can still finish in AWS — refresh before you try it again.
+- Timeouts and limits live in [src/config.rs](src/config.rs): 20 seconds per command, 30 seconds per snapshot, 50 seconds per refresh including identity lookup. Large lists can be incomplete; the command log shows limit notices.
+
+## Troubleshooting
+
+- **Identity error in the header**: your credentials or SSO session are invalid. Sign in with the AWS CLI and press `r` to refresh.
+- **Empty or stale panes**: the last successful data is kept and marked stale. Check the command log for the failed command and limit notices.
+- **Action did not seem to run**: it may have timed out after AWS accepted it. Refresh and check the resource before retrying.
+- **Copy does not work**: copy uses OSC 52 clipboard writes. Enable clipboard writes in your terminal (and in tmux or your multiplexer, if you use one). See the [clipboard support notes](https://docs.rs/crossterm/0.29.0/crossterm/clipboard/struct.CopyToClipboard.html#terminal-support).
 
 ## Screen and keys
 
@@ -78,80 +118,14 @@ if your profile uses SSO.
 | `?` | Show keys |
 | `q`, Ctrl+C | Exit |
 
-The `a actions` footer opens actions for the focused row, including while data
-refreshes. Click a row to select it before you click the footer. The header shows
-the account ID and short principal. Press `1` to focus Status. The detail pane then
-shows the full account ARN, user ID, profile, and region. An identity error
-replaces the account details. Lazy AWS does not show credentials or tokens.
-
-Drag with the left mouse button to select visible text in any service, pane,
-or dialog. Release to copy the highlighted text. A click without a drag keeps
-its normal action. The screen stays fixed during selection. Copy includes only
-the visible rectangle; scroll first to show other data. Trailing spaces are
-removed from each copied line.
-
-Copy uses the terminal's OSC 52 clipboard support. Enable clipboard writes in
-your terminal. If you use tmux or another terminal multiplexer, it must allow
-OSC 52 too. See the [clipboard support notes](https://docs.rs/crossterm/0.29.0/crossterm/clipboard/struct.CopyToClipboard.html#terminal-support).
-
-Status shows `pf` (profile) and `rg` (Region). `AWS chain` means the AWS CLI
-selects the credentials from its configuration and environment. `AWS config`
-means the AWS CLI selects the Region. `DEMO` marks local sample data.
-Status does not show refresh timers or loading text. Automatic refresh stays
-active.
-
-The action list depends on the selected resource and its state. The dialog asks
-for confirmation before it runs an action, including read actions. A file
-transfer asks for a path. A bucket upload uses the local file name as the
-object key. An object upload uses the selected key. A download fails if the
-local destination already exists. See the service guide for file limits and
-the full action list.
-
-## Data and refresh
+Status shows `pf` (profile) and `rg` (region). `AWS chain` means the AWS CLI selects credentials from its configuration and environment. `AWS config` means the AWS CLI selects the region. `DEMO` marks local sample data.
 
 ```text
 AWS credentials --> AWS CLI --> JSON --> snapshot --> resource panes
-Keyboard or mouse ---------------------> selection --> refresh request
 Resource row --> action catalog --> confirmed operation --> AWS CLI --> result --> details
 ```
 
-```text
-User      Runtime/UI      App       Worker handle    Worker thread    AWS CLI
- |             |           |              |                |              |
- |-- click --->|           |              |                |              |
- |             |-- Mouse ->| select row   |                |              |
- |-- press a ->|-- Key --->| open dialog  |                |              |
- |-- choose -->|-- Key --->| select action|                |              |
- |-- confirm ->|-- Key --->| validate     |                |              |
- |             |<-- Action::Execute ------|                |              |
- |             |-- Worker::execute ------>|                |              |
- |             |           |              |-- request ---->|              |
- |             |           |              |                |-- execute --->|
- |             |           |              |                |<-- result ----|
- |             |           |              |<-- response ---|              |
- |             |<-- poll response --------|                |              |
- |             |-- update ->|              |                |              |
- |             |-- draw --->|              |                |              |
-```
-
-The runtime calls `App` for each event. `App` returns `Action::Execute` to the
-runtime. The runtime calls `Worker::execute`, which sends a request to the
-worker thread. The worker thread runs the AWS CLI and sends the result back.
-For a file path or task count, press Enter to accept the value, then press `y`
-to run the action.
-
-Only the active service is polled. A refresh starts every five seconds when
-the worker is free. Requests do not overlap. The worker skips queued requests
-for old selections and cancels a running command when selection changes.
-The UI discards results for old selections.
-Command timeouts, output limits, and list limits are defined in
-[src/config.rs](src/config.rs). Large lists can be incomplete; the command log
-shows limit notices. Each AWS command can run for up to 20 seconds. A service
-snapshot has a 30-second limit. Identity lookup runs first with its own
-20-second command limit. One refresh can take up to 50 seconds. An error keeps
-the last successful data and marks it stale.
-An interrupted or timed-out action can still finish in AWS. Refresh before you
-try it again.
+See [the service guide](docs/services.md) for commands and permissions, and [the implementation guide](docs/development.md) for module boundaries and the full event flow.
 
 ## Checks
 
@@ -163,5 +137,11 @@ cargo build --release
 ```
 
 Tests use local data and a fake AWS executable. They do not need an AWS account.
-See [the service guide](docs/services.md) for commands and permissions.
-See [the implementation guide](docs/development.md) for module boundaries.
+
+## Contributing
+
+Module boundaries and workflows are in [the implementation guide](docs/development.md). Run `cargo fmt`, `cargo clippy`, and `cargo test` before you send a change.
+
+## License
+
+[MIT](LICENSE).
