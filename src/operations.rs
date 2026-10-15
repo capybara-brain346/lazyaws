@@ -2,8 +2,7 @@ mod catalog;
 pub use catalog::available;
 
 #[cfg(test)]
-#[path = "operations/input_tests.rs"]
-mod input_tests;
+mod tests;
 
 use std::{fs, path::Path};
 

@@ -2,7 +2,7 @@ use std::fs;
 
 use crate::operations::Operation;
 
-use super::{FAKE_CLI_LOCK, FakeCli};
+use super::*;
 
 #[test]
 fn execute_accepts_empty_success_output() {

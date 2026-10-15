@@ -1,6 +1,7 @@
 use serde_json::json;
 
-use super::{Operation, catalog::operation};
+use super::catalog::operation;
+use super::*;
 
 fn action(parameter: &'static str, service: &'static str, name: &'static str) -> Operation {
     operation(

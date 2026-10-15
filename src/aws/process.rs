@@ -374,5 +374,4 @@ fn has_more(value: &Value) -> bool {
 }
 
 #[cfg(all(test, unix))]
-#[path = "process/tests.rs"]
 mod tests;

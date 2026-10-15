@@ -4,7 +4,7 @@ use super::*;
 
 #[cfg(test)]
 #[path = "ecr_tests.rs"]
-mod ecr_tests;
+mod tests;
 
 pub(super) fn available(panel: usize, resource: &Resource, primary: &Resource) -> Vec<Operation> {
     let id = resource.id.as_str();

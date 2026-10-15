@@ -268,5 +268,4 @@ impl App {
 }
 
 #[cfg(test)]
-#[path = "../tests/fixtures/demo_app.rs"]
 mod tests;

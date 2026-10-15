@@ -489,8 +489,7 @@ fn lambda(selected: Option<&str>) -> [Vec<Resource>; 4] {
 
 #[cfg(test)]
 mod tests {
-    use super::snapshot;
-    use crate::model::Service;
+    use super::*;
 
     #[test]
     fn every_demo_service_has_two_parents_and_contextual_related_data() {

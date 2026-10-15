@@ -1,7 +1,11 @@
-use crossterm::event::{KeyModifiers, MouseButton, MouseEvent, MouseEventKind};
-use lazyaws::{app::Action, demo};
+#[allow(dead_code)]
+mod common;
 
-use super::*;
+use common::{app_with_service, render_with_map};
+use crossterm::event::{KeyModifiers, MouseButton, MouseEvent, MouseEventKind};
+use lazyaws::{
+    app::Action, config::Config, demo, model::Service, operations::AccountContext, ui::MouseTarget,
+};
 
 #[test]
 fn actions_button_opens_for_a_selected_row_during_refresh() {

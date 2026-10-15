@@ -240,7 +240,7 @@ fn create_private_dir(path: &Path) -> std::io::Result<()> {
 mod tests {
     use std::{fs, os::unix::fs::symlink};
 
-    use super::create_private_dir;
+    use super::*;
 
     #[test]
     fn staging_directory_does_not_follow_or_remove_a_symlink_collision() {

@@ -1,8 +1,4 @@
-use serde_json::{Value, json};
-
-use crate::{model::Resource, operations::Operation};
-
-use super::available;
+use super::*;
 
 fn resource(id: &str, detail: Value) -> Resource {
     Resource {
