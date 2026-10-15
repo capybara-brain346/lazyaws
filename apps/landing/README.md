@@ -2,9 +2,12 @@
 
 A one-page Next.js site with shadcn/ui buttons, Lucide icons, local fonts, generated landscape art, and real Lazy AWS demo captures.
 
+Live site: https://lazyaws.choudhari-piyush.workers.dev
+
 ## Run
 
 Use Node.js 20.9 or later and npm.
+Workers commands require Node.js 22 or later.
 
 ```sh
 cd apps/landing
@@ -23,6 +26,53 @@ npm start
 ```
 
 The browser tests use Chromium at `/usr/bin/chromium`. Set `CHROMIUM_PATH` if the executable is elsewhere. The tests cover service selection, command copy, clipboard failure, required links, image loading, and page width on desktop and phone viewports.
+
+## Deploy to Cloudflare Workers
+
+The site uses a Next.js static export and Workers Static Assets. It needs no server process, database, or runtime secrets. `npm run build` creates `out/`. `npm start` serves that build in the local Workers runtime at http://localhost:3000.
+
+```sh
+cd apps/landing
+npx wrangler login
+npm run deploy
+```
+
+`wrangler.jsonc` sets the Worker name, Cloudflare account, compatibility date, asset directory, and 404 handling. The Worker uses the account's `workers.dev` address. Preview version URLs are disabled. Credentials stay in the local Wrangler store; do not add them to the repository.
+
+```text
+src/ + public/ --next build--> out/ --wrangler deploy--> Workers Static Assets
+Workers Static Assets --HTML, CSS, JS, images--> browser
+```
+
+```text
+Before: npm start -> next start -> Next.js server
+After:  npm start -> wrangler dev -> out/
+Added:  npm run deploy -> next build -> wrangler deploy -> Workers Static Assets
+```
+
+To test a local Workers preview, run `npm run build && npm start`, then use another terminal:
+
+```sh
+TEST_BASE_URL=http://localhost:3000 npm test
+```
+
+Set `TEST_BASE_URL` to the deployed HTTPS URL to run the same tests against production. This setting stops Playwright from starting a local Next.js server.
+
+```text
+Before: npm test -> defineConfig -> webServer -> next dev
+After:  npm test -> defineConfig -> webServer -> next dev (default)
+Added:  npm test -> defineConfig -> TEST_BASE_URL (external server)
+```
+
+Unknown paths return the exported `404.html` with HTTP 404. This setup supports the current static page and client controls. Server Actions, request-time server rendering, and API routes need a server adapter if added later. Deployment is manual; `npm run deploy` builds and publishes the current local source.
+
+```text
+Wrangler             Cloudflare             Browser
+   |--upload assets----->|                     |
+   |<--deployment URL----|                     |
+   |                     |<--GET /------------|
+   |                     |---HTML + assets--->|
+```
 
 ## Page flow
 
@@ -54,6 +104,7 @@ Scrollbars are hidden. The page and command panels remain scrollable.
 - `src/app/base.css`: shared color and type tokens. `globals.css` imports the focused base, hero, guide, and responsive styles.
 - `scripts/config.mjs`: browser and capture settings.
 - `next.config.ts`: Next.js settings.
+- `wrangler.jsonc`: Workers deployment settings.
 - `components.json`: shadcn configuration.
 
 `page.tsx` composes the header, hero, install guide, interface guide, and footer. Only the service preview and copy buttons need client state.
@@ -100,6 +151,6 @@ Section artwork --compressed WebP--> public/icons --> page sections
 
 ## Scope
 
-Package install commands will be added when distribution is ready. The page currently documents source builds with Cargo. It has no sign-up, tracking, remote font requests, or backend. It is not deployed by this change.
+Package install commands will be added when distribution is ready. The page currently documents source builds with Cargo. It has no sign-up, tracking, remote font requests, or backend.
 
 The runtime dependency audit passes. The full npm audit currently reports five high-severity advisories in the development-only Next.js lint dependency chain. No compatible patched `braces` release was available when checked. Do not use these lint tools to process untrusted file patterns.

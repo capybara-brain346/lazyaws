@@ -8,7 +8,7 @@
 
 Lazy AWS shells out to your AWS CLI and shows the exact command before it runs, so there are no hidden API calls. Try it with local sample data, then point it at your account.
 
-[Service guide](docs/services.md) · [AWS CLI action inventory](docs/aws-cli-actions.md) · [Captured demo](docs/demo.txt)
+[Website](https://lazyaws.choudhari-piyush.workers.dev) · [Service guide](docs/services.md) · [AWS CLI action inventory](docs/aws-cli-actions.md) · [Captured demo](docs/demo.txt)
 
 </div>
 

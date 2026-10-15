@@ -1,0 +1,12 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "lazyaws",
+  "account_id": "32f2a5e2a676ee905a3828b2b38b0150",
+  "compatibility_date": "2026-10-15",
+  "workers_dev": true,
+  "preview_urls": false,
+  "assets": {
+    "directory": "./out",
+    "not_found_handling": "404-page"
+  }
+}

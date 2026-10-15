@@ -2,6 +2,7 @@ export const tooling = {
   browserPath: process.env.CHROMIUM_PATH || "/usr/bin/chromium",
   browserArgs: ["--no-sandbox"],
   url: "http://localhost:3000",
+  testBaseUrl: process.env.TEST_BASE_URL,
   desktop: { width: 1440, height: 1000 },
   mobile: { width: 390, height: 844 },
   demo: {

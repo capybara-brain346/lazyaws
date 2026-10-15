@@ -5,7 +5,7 @@ export default defineConfig({
   testDir: "./tests",
   fullyParallel: true,
   use: {
-    baseURL: tooling.url,
+    baseURL: tooling.testBaseUrl || tooling.url,
     launchOptions: {
       executablePath: tooling.browserPath,
       args: tooling.browserArgs,
@@ -21,9 +21,11 @@ export default defineConfig({
       use: { ...devices["iPhone 13"], defaultBrowserType: "chromium" },
     },
   ],
-  webServer: {
-    command: "npm run dev -- --port 3000",
-    url: tooling.url,
-    reuseExistingServer: !process.env.CI,
-  },
+  webServer: tooling.testBaseUrl
+    ? undefined
+    : {
+        command: "npm run dev -- --port 3000",
+        url: tooling.url,
+        reuseExistingServer: !process.env.CI,
+      },
 });

@@ -21,7 +21,8 @@
     "eslint": "^9.39.5",
     "eslint-config-next": "^16.4.1",
     "tailwindcss": "^4.3.3",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "wrangler": "4.151.0"
   },
   "name": "lazyaws-landing",
   "version": "0.1.0",
@@ -29,7 +30,8 @@
   "scripts": {
     "dev": "next dev --hostname 0.0.0.0",
     "build": "next build",
-    "start": "next start --hostname 0.0.0.0",
+    "start": "wrangler dev --ip 0.0.0.0 --port 3000",
+    "deploy": "npm run build && wrangler deploy",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "playwright test",
