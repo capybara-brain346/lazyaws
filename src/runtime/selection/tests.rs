@@ -4,7 +4,7 @@ use ratatui::{Terminal, backend::TestBackend};
 use super::*;
 use crate::{
     app::ActionDialog,
-    config::Config,
+    config::{Config, DEFAULT_THEME},
     demo,
     model::Service,
     operations::Operation,
@@ -102,12 +102,18 @@ fn reverse_rectangle_keeps_unicode_and_copies_the_highlighted_snapshot() {
 
     let mut terminal = Terminal::new(TestBackend::new(6, 2)).unwrap();
     terminal
-        .draw(|frame| assert!(selection.draw(frame)))
+        .draw(|frame| assert!(selection.draw(frame, &DEFAULT_THEME)))
         .unwrap();
     let highlighted = terminal.backend().buffer();
     assert_eq!(highlighted[(2, 0)].symbol(), "e\u{301}");
-    assert_eq!(highlighted[(2, 0)].bg, TEXT_SELECTION_BACKGROUND_COLOR);
-    assert_ne!(highlighted[(5, 0)].bg, TEXT_SELECTION_BACKGROUND_COLOR);
+    assert_eq!(
+        highlighted[(2, 0)].bg,
+        DEFAULT_THEME.text_selection_background
+    );
+    assert_ne!(
+        highlighted[(5, 0)].bg,
+        DEFAULT_THEME.text_selection_background
+    );
 
     let changed = Buffer::with_lines(["xxxxxx", "yyyyyy"]);
     assert_eq!(
@@ -148,7 +154,7 @@ fn blank_selection_and_cancelled_or_resized_drag_do_not_copy_or_click() {
     selection.handle_mouse(down, &screen, &mut app, &targets);
     let mut terminal = Terminal::new(TestBackend::new(3, 1)).unwrap();
     terminal
-        .draw(|frame| assert!(!selection.draw(frame)))
+        .draw(|frame| assert!(!selection.draw(frame, &DEFAULT_THEME)))
         .unwrap();
     assert_eq!(
         selection.handle_mouse(up, &screen, &mut app, &targets),

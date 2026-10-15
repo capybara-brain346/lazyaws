@@ -3,7 +3,7 @@ use ratatui::{Frame, buffer::Buffer, layout::Rect, style::Style, text::Span};
 
 use crate::{
     app::{Action, App},
-    config::{TEXT_SELECTION_BACKGROUND_COLOR, TEXT_SELECTION_TEXT_COLOR},
+    theme::Theme,
     ui::HitMap,
 };
 
@@ -71,7 +71,7 @@ impl TextSelection {
         }
     }
 
-    pub(super) fn draw(&mut self, frame: &mut Frame) -> bool {
+    pub(super) fn draw(&mut self, frame: &mut Frame, theme: &Theme) -> bool {
         let Some(drag) = &self.drag else {
             return false;
         };
@@ -85,8 +85,8 @@ impl TextSelection {
             frame.buffer_mut().set_style(
                 drag.area(),
                 Style::default()
-                    .fg(TEXT_SELECTION_TEXT_COLOR)
-                    .bg(TEXT_SELECTION_BACKGROUND_COLOR),
+                    .fg(theme.text_selection_text)
+                    .bg(theme.text_selection_background),
             );
         }
         true

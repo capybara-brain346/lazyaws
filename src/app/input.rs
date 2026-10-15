@@ -37,6 +37,10 @@ impl App {
             return self.handle_action_key(key);
         }
 
+        if self.theme_picker.is_some() {
+            return self.handle_theme_key(key);
+        }
+
         if self.help {
             match key.code {
                 KeyCode::Esc | KeyCode::Char('?') => self.help = false,
@@ -58,6 +62,10 @@ impl App {
             }
             KeyCode::Char('a') => {
                 self.open_actions();
+                Action::None
+            }
+            KeyCode::Char('t') => {
+                self.open_themes();
                 Action::None
             }
             KeyCode::Char('[') => self.change_service(Service::ALL[(self.service.index() + 4) % 5]),
@@ -157,6 +165,15 @@ impl App {
         let Some(target) = targets.target_at(event.column, event.row) else {
             return Action::None;
         };
+
+        if self.theme_picker.is_some() {
+            if let (MouseEventKind::Down(MouseButton::Left), MouseTarget::ChooseTheme(index)) =
+                (event.kind, target)
+            {
+                self.apply_theme(index);
+            }
+            return Action::None;
+        }
 
         if self.actions.is_some() {
             return match (event.kind, target) {

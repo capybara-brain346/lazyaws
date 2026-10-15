@@ -1,13 +1,15 @@
 use std::{collections::VecDeque, time::Instant};
 
 use crate::{
-    config::LOG_CAPACITY,
+    config::{DEFAULT_THEME, LOG_CAPACITY, THEMES_JSON},
     model::{Resource, Service, Snapshot},
     operations::AccountContext,
+    theme::{self, Theme},
 };
 
 mod actions;
 mod input;
+mod themes;
 
 pub use actions::ActionDialog;
 pub use input::Action;
@@ -37,6 +39,9 @@ pub struct App {
     pub executing: bool,
     pub account: Option<Result<AccountContext, String>>,
     pub operation_output: Option<String>,
+    pub themes: Vec<Theme>,
+    pub theme: usize,
+    pub theme_picker: Option<usize>,
     service_states: [ServiceState; 5],
     detail_panel: usize,
     filter_panel: usize,
@@ -51,6 +56,13 @@ impl Default for App {
 impl App {
     pub fn new() -> Self {
         let service = Service::Ec2;
+        let mut themes = vec![DEFAULT_THEME];
+        let mut logs = VecDeque::new();
+        match theme::load(THEMES_JSON) {
+            Ok(presets) => themes.extend(presets),
+            Err(error) => logs.push_back(format!("Themes unavailable: {error}")),
+        }
+
         Self {
             service,
             snapshot: Snapshot::empty(service),
@@ -62,12 +74,15 @@ impl App {
             detail_scroll: 0,
             loading: true,
             error: None,
-            logs: VecDeque::new(),
+            logs,
             last_updated: None,
             actions: None,
             executing: false,
             account: None,
             operation_output: None,
+            themes,
+            theme: 0,
+            theme_picker: None,
             service_states: std::array::from_fn(|_| ServiceState::default()),
             detail_panel: 0,
             filter_panel: 0,

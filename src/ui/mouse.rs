@@ -15,6 +15,7 @@ pub enum MouseTarget {
     ChooseAction(usize),
     ConfirmAction,
     CancelAction,
+    ChooseTheme(usize),
 }
 
 #[derive(Clone, Debug, Default)]

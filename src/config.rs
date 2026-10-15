@@ -1,23 +1,32 @@
-use std::time::Duration;
+use std::{borrow::Cow, time::Duration};
 
 use ratatui::style::Color;
 
-pub const FOCUS_COLOR: Color = Color::Green;
-pub const BORDER_COLOR: Color = Color::Reset;
-pub const TITLE_COLOR: Color = Color::Reset;
-pub const SELECTION_TEXT_COLOR: Color = Color::Reset;
-pub const SELECTION_BACKGROUND_COLOR: Color = Color::Blue;
-pub const INACTIVE_SELECTION_BACKGROUND_COLOR: Color = Color::Rgb(77, 77, 77);
-pub const TEXT_SELECTION_TEXT_COLOR: Color = Color::Black;
-pub const TEXT_SELECTION_BACKGROUND_COLOR: Color = Color::LightYellow;
-pub const KEY_COLOR: Color = Color::Blue;
-pub const WARNING_COLOR: Color = Color::Yellow;
-pub const ERROR_COLOR: Color = Color::Red;
-pub const MUTED_COLOR: Color = Color::DarkGray;
-pub const JSON_KEY_COLOR: Color = Color::Blue;
-pub const JSON_STRING_COLOR: Color = Color::Green;
-pub const JSON_LITERAL_COLOR: Color = Color::Magenta;
-pub const JSON_NUMBER_COLOR: Color = Color::Yellow;
+use crate::theme::Theme;
+
+pub const DEFAULT_THEME: Theme = Theme {
+    name: Cow::Borrowed("Terminal"),
+    appearance: Cow::Borrowed("terminal"),
+    background: Color::Reset,
+    text: Color::Reset,
+    border: Color::Reset,
+    focus: Color::Green,
+    title: Color::Reset,
+    muted: Color::DarkGray,
+    key: Color::Blue,
+    warning: Color::Yellow,
+    error: Color::Red,
+    selection_text: Color::Reset,
+    selection_background: Color::Blue,
+    inactive_selection_background: Color::Rgb(77, 77, 77),
+    text_selection_text: Color::Black,
+    text_selection_background: Color::LightYellow,
+    json_key: Color::Blue,
+    json_string: Color::Green,
+    json_literal: Color::Magenta,
+    json_number: Color::Yellow,
+};
+pub const THEMES_JSON: &str = include_str!("../assets/themes.json");
 
 pub const POLL_INTERVAL: Duration = Duration::from_secs(5);
 pub const EVENT_WAIT: Duration = Duration::from_millis(50);
@@ -53,6 +62,8 @@ pub const HELP_WIDTH: u16 = 64;
 pub const HELP_HEIGHT: u16 = 23;
 pub const ACTION_WIDTH: u16 = 88;
 pub const ACTION_HEIGHT: u16 = 18;
+pub const THEME_WIDTH: u16 = 58;
+pub const THEME_HEIGHT: u16 = 24;
 pub const ACTION_CONFIRM_PROMPT: &str = "Click Y for yes, N for cancel, or Escape to cancel.";
 pub const DETAIL_SCROLL_STEP: u16 = 10;
 pub const DEFAULT_AWS_BIN: &str = "aws";
@@ -80,7 +91,7 @@ impl Default for Config {
 }
 
 pub const USAGE: &str = "lazyaws [--demo] [--profile NAME] [--region REGION] [--aws-bin PATH]\n\n\
-Keys: [ and ] services, Tab panels, j/k rows, Enter details, / filter, r refresh, ? help, q quit.\n\
+Keys: [ and ] services, Tab panels, j/k rows, Enter details, / filter, r refresh, t themes, ? help, q quit.\n\
 AWS mode uses your AWS CLI credentials for read commands and actions after confirmation.\n\
 Press a to choose an action. Use the mouse to select services, panels, and rows.\n\
 --demo needs no credentials.\n\

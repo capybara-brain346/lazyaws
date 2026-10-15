@@ -6,37 +6,42 @@ use ratatui::{
     widgets::{Block, BorderType, Borders, Clear, Paragraph, Wrap},
 };
 
-use crate::config::{self, HELP_HEIGHT, HELP_WIDTH};
+use crate::{
+    config::{HELP_HEIGHT, HELP_WIDTH},
+    theme::Theme,
+};
 
-pub(super) fn draw_key_bar(frame: &mut Frame, area: Rect) {
+pub(super) fn draw_key_bar(frame: &mut Frame, area: Rect, theme: &Theme) {
     let line = Line::from(vec![
-        Span::styled(" a ", Style::default().fg(config::KEY_COLOR)),
+        Span::styled(" a ", Style::default().fg(theme.key)),
         Span::raw("actions  "),
-        Span::styled(" 1 ", Style::default().fg(config::KEY_COLOR)),
+        Span::styled(" 1 ", Style::default().fg(theme.key)),
         Span::raw("status  "),
-        Span::styled("2–5", Style::default().fg(config::KEY_COLOR)),
+        Span::styled("2–5", Style::default().fg(theme.key)),
         Span::raw(" lists  "),
-        Span::styled("0", Style::default().fg(config::KEY_COLOR)),
+        Span::styled("0", Style::default().fg(theme.key)),
         Span::raw(" detail  "),
-        Span::styled("6", Style::default().fg(config::KEY_COLOR)),
+        Span::styled("6", Style::default().fg(theme.key)),
         Span::raw(" log  "),
-        Span::styled("j/k", Style::default().fg(config::KEY_COLOR)),
+        Span::styled("j/k", Style::default().fg(theme.key)),
         Span::raw(" move  "),
-        Span::styled("Tab", Style::default().fg(config::KEY_COLOR)),
+        Span::styled("Tab", Style::default().fg(theme.key)),
         Span::raw(" panels  "),
-        Span::styled("/", Style::default().fg(config::KEY_COLOR)),
+        Span::styled("/", Style::default().fg(theme.key)),
         Span::raw(" filter  "),
-        Span::styled("[ ]", Style::default().fg(config::KEY_COLOR)),
+        Span::styled("[ ]", Style::default().fg(theme.key)),
         Span::raw(" services  "),
-        Span::styled("?", Style::default().fg(config::KEY_COLOR)),
+        Span::styled("t", Style::default().fg(theme.key)),
+        Span::raw(" themes  "),
+        Span::styled("?", Style::default().fg(theme.key)),
         Span::raw(" help  "),
-        Span::styled("q", Style::default().fg(config::KEY_COLOR)),
+        Span::styled("q", Style::default().fg(theme.key)),
         Span::raw(" quit"),
     ]);
     frame.render_widget(Paragraph::new(line), area);
 }
 
-pub(super) fn draw_help(frame: &mut Frame, area: Rect) {
+pub(super) fn draw_help(frame: &mut Frame, area: Rect, theme: &Theme) {
     let width = HELP_WIDTH.min(area.width.saturating_sub(2));
     let height = HELP_HEIGHT.min(area.height.saturating_sub(2));
     let rect = Rect::new(
@@ -60,16 +65,14 @@ pub(super) fn draw_help(frame: &mut Frame, area: Rect) {
             "S3 files",
             "Upload or download one file; existing downloads stay safe",
         ),
+        ("Themes", "t choose; j/k preview; Enter apply; Esc cancel"),
         ("Help", "? show or close this screen"),
         ("Quit", "q or Ctrl+C quit"),
     ]
     .into_iter()
     .map(|(key, description)| {
         Line::from(vec![
-            Span::styled(
-                format!("{key:<10}"),
-                Style::default().fg(config::TITLE_COLOR),
-            ),
+            Span::styled(format!("{key:<10}"), Style::default().fg(theme.title)),
             Span::raw(description),
         ])
     })
@@ -78,27 +81,28 @@ pub(super) fn draw_help(frame: &mut Frame, area: Rect) {
     frame.render_widget(Clear, rect);
     frame.render_widget(
         Paragraph::new(Text::from(lines))
-            .block(pane_block("Keybindings", true))
+            .block(pane_block("Keybindings", true, theme))
             .wrap(Wrap { trim: true }),
         rect,
     );
 }
 
-pub(super) fn pane_block(title: &str, focused: bool) -> Block<'static> {
+pub(super) fn pane_block(title: &str, focused: bool, theme: &Theme) -> Block<'static> {
     Block::default()
+        .style(theme.base())
         .title(format!(" {title} "))
         .borders(Borders::ALL)
         .border_type(BorderType::Rounded)
         .border_style(if focused {
             Style::default()
-                .fg(config::FOCUS_COLOR)
+                .fg(theme.focus)
                 .add_modifier(Modifier::BOLD)
         } else {
-            Style::default().fg(config::BORDER_COLOR)
+            Style::default().fg(theme.border)
         })
         .title_style(
             Style::default()
-                .fg(config::TITLE_COLOR)
+                .fg(theme.title)
                 .add_modifier(Modifier::BOLD),
         )
 }

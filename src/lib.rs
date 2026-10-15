@@ -7,4 +7,5 @@ pub mod demo;
 pub mod model;
 pub mod operations;
 pub mod runtime;
+pub mod theme;
 pub mod ui;

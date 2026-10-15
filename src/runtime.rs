@@ -315,7 +315,7 @@ pub fn run(config: Config) -> io::Result<()> {
         }
 
         let screen = terminal.draw(|frame| {
-            if !selection.draw(frame) {
+            if !selection.draw(frame, app.theme()) {
                 hit_map = ui::draw_interactive(frame, &app, &config);
             }
         })?;

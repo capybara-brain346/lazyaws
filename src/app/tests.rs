@@ -410,3 +410,20 @@ fn action_and_help_overlays_block_mouse_click_through() {
     assert_eq!(app.handle_mouse(click, &targets), Action::None);
     assert_eq!(app.service, Service::Ecs);
 }
+
+#[test]
+fn theme_picker_previews_then_applies_or_reverts() {
+    let mut app = App::new();
+    app.handle_key(key(KeyCode::Char('t')));
+    app.handle_key(key(KeyCode::Down));
+
+    assert_eq!(app.theme().name, "Catppuccin Mocha");
+    app.handle_key(key(KeyCode::Esc));
+    assert_eq!(app.theme().name, "Terminal");
+
+    app.handle_key(key(KeyCode::Char('t')));
+    app.handle_key(key(KeyCode::Up));
+    app.handle_key(key(KeyCode::Enter));
+    assert_eq!(app.theme().name, "Cobalt2");
+    assert_eq!(app.theme_picker, None);
+}

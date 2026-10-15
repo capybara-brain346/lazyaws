@@ -408,3 +408,30 @@ fn long_action_menu_keeps_the_selected_row_visible_and_clickable() {
         Some(MouseTarget::ChooseAction(20))
     );
 }
+
+#[test]
+fn theme_picker_paints_the_previewed_theme_and_maps_clickable_rows() {
+    let mut app = app_with_service(Service::Ec2);
+    app.theme_picker = Some(3);
+    let (text, hit_map) = render_with_map(&app, &Config::default(), 120, 36);
+
+    assert!(text.contains("Themes"));
+    assert!(text.contains("Dracula"));
+    assert!(text.contains("✓ current"));
+    assert!(
+        hit_map
+            .regions
+            .iter()
+            .any(|(_, target)| *target == MouseTarget::ChooseTheme(3))
+    );
+
+    let backend = ratatui::backend::TestBackend::new(120, 36);
+    let mut terminal = ratatui::Terminal::new(backend).unwrap();
+    terminal
+        .draw(|frame| lazyaws::ui::draw(frame, &app, &Config::default()))
+        .unwrap();
+    assert_eq!(
+        terminal.backend().buffer()[(0, 35)].bg,
+        app.theme().background
+    );
+}

@@ -19,6 +19,7 @@ Lazy AWS shells out to your AWS CLI and shows the exact command before it runs, 
 - **Lazygit layout**: five left panes, a detail pane, a command log, and a key bar. The focused left pane grows; the log compacts on short terminals.
 - **Keyboard and mouse**: tabs, panes, rows, filters, scrolling, action dialogs, and drag-to-copy text selection all work with keys or mouse.
 - **Live but safe refresh**: only the active service is polled every five seconds, without overlapping requests. Errors keep the last good data and mark it stale.
+- **Themes**: press `t` to preview and apply one of 20 bundled color themes, or keep the default terminal colors.
 - **Demo mode**: `cargo run -- --demo` runs on local sample data with no AWS CLI or credentials.
 
 ## Requirements
@@ -115,6 +116,10 @@ File transfers ask for a path. A bucket upload uses the local file name as the o
 | Mouse click on a tab, pane, or row | Change service, focus, or selection |
 | Mouse wheel over a list or details | Move the selection or scroll details |
 | Left mouse drag, then release | Select a rectangle of text and copy it |
+| `t` | Open the theme picker |
+| `j` / `k`, Up / Down in the theme picker | Preview a theme |
+| Enter or click a theme | Apply it |
+| Esc or `t` in the theme picker | Close it and keep the current theme |
 | `?` | Show keys |
 | `q`, Ctrl+C | Exit |
 
@@ -126,6 +131,28 @@ Resource row --> action catalog --> confirmed operation --> AWS CLI --> result -
 ```
 
 See [the service guide](docs/services.md) for commands and permissions, and [the implementation guide](docs/development.md) for module boundaries and the full event flow.
+
+## Themes
+
+`assets/themes.json` holds the theme presets. The build embeds the file, so the
+binary needs no extra files. The picker shows `Terminal` first. `Terminal` uses
+the colors of your terminal. The bundled presets are:
+
+Catppuccin Mocha, Catppuccin Latte, Dracula, Nord, Gruvbox Dark, Gruvbox Light,
+Tokyo Night, One Dark, Solarized Dark, Solarized Light, GitHub Dark,
+GitHub Light, Ayu Dark, Everforest Dark, Rosé Pine, Kanagawa, Monokai,
+Night Owl, Material Palenight, and Cobalt2.
+
+Each preset sets all 18 color roles: `background`, `text`, `border`, `focus`,
+`title`, `muted`, `key`, `warning`, `error`, `selection_text`,
+`selection_background`, `inactive_selection_background`, `text_selection_text`,
+`text_selection_background`, `json_key`, `json_string`, `json_literal`, and
+`json_number`. A color is `#RRGGBB`, an ANSI color name, an ANSI index, or
+`reset`. To add a preset, add an object to the `themes` list and rebuild. A
+missing or bad color stops the load. Then only `Terminal` is available, and the
+command log shows the error.
+
+The selected theme applies to the current session only.
 
 ## Checks
 

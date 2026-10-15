@@ -10,6 +10,7 @@ mod actions;
 mod chrome;
 mod details;
 mod mouse;
+mod themes;
 
 pub use mouse::{HitMap, MouseTarget};
 
@@ -22,6 +23,7 @@ use crate::{
         self, Config, FOOTER_HEIGHT, MIN_HEIGHT, MIN_WIDTH, SERVICE_BAR_HEIGHT, STATUS_PANEL_HEIGHT,
     },
     model::{Resource, Service},
+    theme::Theme,
 };
 
 pub fn draw(frame: &mut Frame, app: &App, config: &Config) {
@@ -31,8 +33,10 @@ pub fn draw(frame: &mut Frame, app: &App, config: &Config) {
 pub fn draw_interactive(frame: &mut Frame, app: &App, config: &Config) -> HitMap {
     let mut hit_map = HitMap::default();
     let area = frame.area();
+    let theme = app.theme();
+    frame.render_widget(Block::default().style(theme.base()), area);
     if area.width < MIN_WIDTH || area.height < MIN_HEIGHT {
-        draw_too_small(frame, area);
+        draw_too_small(frame, area, theme);
         return hit_map;
     }
 
@@ -70,7 +74,7 @@ pub fn draw_interactive(frame: &mut Frame, app: &App, config: &Config) -> HitMap
         &mut row_regions,
     );
     draw_details_and_log(frame, columns[2], app, config, &mut pane_regions);
-    draw_key_bar(frame, layout[2]);
+    draw_key_bar(frame, layout[2], theme);
     hit_map.regions.extend(pane_regions);
     hit_map.regions.extend(row_regions);
     hit_map.regions.push((
@@ -85,14 +89,16 @@ pub fn draw_interactive(frame: &mut Frame, app: &App, config: &Config) -> HitMap
 
     if let Some(dialog) = &app.actions {
         actions::draw_action_dialog(frame, area, app, dialog, config, &mut hit_map);
+    } else if let Some(selected) = app.theme_picker {
+        themes::draw_theme_picker(frame, area, app, selected, &mut hit_map);
     } else if app.help {
-        draw_help(frame, area);
+        draw_help(frame, area, theme);
     }
 
     hit_map
 }
 
-fn draw_too_small(frame: &mut Frame, area: Rect) {
+fn draw_too_small(frame: &mut Frame, area: Rect, theme: &Theme) {
     let warning = Paragraph::new("Terminal is too small. Enlarge it to use lazyaws.")
         .alignment(Alignment::Center)
         .wrap(Wrap { trim: true })
@@ -101,16 +107,17 @@ fn draw_too_small(frame: &mut Frame, area: Rect) {
                 .title(" lazyaws ")
                 .borders(Borders::ALL)
                 .border_type(BorderType::Rounded)
-                .border_style(Style::default().fg(config::WARNING_COLOR)),
+                .border_style(Style::default().fg(theme.warning)),
         );
     frame.render_widget(warning, area);
 }
 
 fn draw_services(frame: &mut Frame, area: Rect, app: &App, hit_map: &mut HitMap) {
+    let theme = app.theme();
     let mut spans = vec![Span::styled(
         " lazyaws ",
         Style::default()
-            .fg(config::TITLE_COLOR)
+            .fg(theme.title)
             .add_modifier(Modifier::BOLD),
     )];
 
@@ -122,11 +129,11 @@ fn draw_services(frame: &mut Frame, area: Rect, app: &App, hit_map: &mut HitMap)
             format!(" {} ", service.name()),
             if selected {
                 Style::default()
-                    .fg(config::SELECTION_TEXT_COLOR)
-                    .bg(config::SELECTION_BACKGROUND_COLOR)
+                    .fg(theme.selection_text)
+                    .bg(theme.selection_background)
                     .add_modifier(Modifier::BOLD)
             } else {
-                Style::default().fg(config::TITLE_COLOR)
+                Style::default().fg(theme.title)
             },
         ));
         hit_map.regions.push((
@@ -143,7 +150,7 @@ fn draw_services(frame: &mut Frame, area: Rect, app: &App, hit_map: &mut HitMap)
 
     spans.push(Span::styled(
         "  [/] switch service",
-        Style::default().fg(config::MUTED_COLOR),
+        Style::default().fg(theme.muted),
     ));
     let account = match &app.account {
         Some(Ok(account)) => format!(
@@ -161,16 +168,10 @@ fn draw_services(frame: &mut Frame, area: Rect, app: &App, hit_map: &mut HitMap)
         } else {
             " Filtered: "
         };
-        let mut filter = vec![Span::styled(
-            label,
-            Style::default().fg(config::TITLE_COLOR),
-        )];
+        let mut filter = vec![Span::styled(label, Style::default().fg(theme.title))];
         filter.push(Span::raw(safe_text(&app.filter)));
         if app.filtering {
-            filter.push(Span::styled(
-                "▏",
-                Style::default().fg(config::WARNING_COLOR),
-            ));
+            filter.push(Span::styled("▏", Style::default().fg(theme.warning)));
         }
         lines.push(Line::from(filter));
     } else {
@@ -245,6 +246,7 @@ fn draw_status(
     config: &Config,
     pane_regions: &mut Vec<(Rect, MouseTarget)>,
 ) {
+    let theme = app.theme();
     let profile = config
         .profile
         .as_deref()
@@ -254,9 +256,9 @@ fn draw_status(
         .as_deref()
         .unwrap_or(config::DEFAULT_REGION_LABEL);
     let mut spans = vec![
-        Span::styled(" pf:", Style::default().fg(config::TITLE_COLOR)),
+        Span::styled(" pf:", Style::default().fg(theme.title)),
         Span::raw(safe_text(profile)),
-        Span::styled(" rg:", Style::default().fg(config::TITLE_COLOR)),
+        Span::styled(" rg:", Style::default().fg(theme.title)),
         Span::raw(safe_text(region)),
     ];
 
@@ -264,13 +266,13 @@ fn draw_status(
         spans.push(Span::styled(
             " DEMO",
             Style::default()
-                .fg(config::WARNING_COLOR)
+                .fg(theme.warning)
                 .add_modifier(Modifier::BOLD),
         ));
     }
 
     frame.render_widget(
-        Paragraph::new(Line::from(spans)).block(pane_block("[1] Status", app.focus == 0)),
+        Paragraph::new(Line::from(spans)).block(pane_block("[1] Status", app.focus == 0, theme)),
         area,
     );
     pane_regions.push((area, MouseTarget::Pane(0)));
@@ -284,6 +286,7 @@ fn draw_resource_panel(
     pane_regions: &mut Vec<(Rect, MouseTarget)>,
     row_regions: &mut Vec<(Rect, MouseTarget)>,
 ) {
+    let theme = app.theme();
     let data = &app.snapshot.panels[panel - 1];
     let visible = app.visible_indices(panel);
     let title = format!(
@@ -298,7 +301,7 @@ fn draw_resource_panel(
     if let Some(error) = &data.error {
         lines.push(Line::from(Span::styled(
             format!("Error: {}", safe_text(error)),
-            Style::default().fg(config::ERROR_COLOR),
+            Style::default().fg(theme.error),
         )));
     }
 
@@ -314,7 +317,7 @@ fn draw_resource_panel(
         };
         lines.push(Line::from(Span::styled(
             message,
-            Style::default().fg(config::MUTED_COLOR),
+            Style::default().fg(theme.muted),
         )));
     } else {
         for &index in &visible {
@@ -322,7 +325,7 @@ fn draw_resource_panel(
                 continue;
             };
             let selected = app.selected[panel - 1] == index;
-            lines.push(resource_line(resource, selected, app.focus == panel));
+            lines.push(resource_line(resource, selected, app.focus == panel, theme));
         }
     }
 
@@ -333,7 +336,7 @@ fn draw_resource_panel(
     frame.render_widget(
         Paragraph::new(Text::from(lines))
             .scroll((scroll, 0))
-            .block(pane_block(&title, app.focus == panel)),
+            .block(pane_block(&title, app.focus == panel, theme)),
         area,
     );
 
@@ -375,15 +378,21 @@ fn resource_scroll(visible: &[usize], selected: usize, list_rows: usize, error_r
         .min(usize::from(u16::MAX)) as u16
 }
 
-fn resource_line(resource: &Resource, selected: bool, focused: bool) -> Line<'static> {
-    let style = if selected {
+fn resource_line(
+    resource: &Resource,
+    selected: bool,
+    focused: bool,
+    theme: &Theme,
+) -> Line<'static> {
+    let style = if selected && focused {
         Style::default()
-            .fg(config::SELECTION_TEXT_COLOR)
-            .bg(if focused {
-                config::SELECTION_BACKGROUND_COLOR
-            } else {
-                config::INACTIVE_SELECTION_BACKGROUND_COLOR
-            })
+            .fg(theme.selection_text)
+            .bg(theme.selection_background)
+            .add_modifier(Modifier::BOLD)
+    } else if selected {
+        Style::default()
+            .fg(theme.text)
+            .bg(theme.inactive_selection_background)
             .add_modifier(Modifier::BOLD)
     } else {
         Style::default()

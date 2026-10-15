@@ -5,9 +5,11 @@ resource data and runs confirmed actions. Rust code forbids `unsafe`.
 
 | File | Purpose |
 | --- | --- |
-| `src/config.rs` | Defaults, limits, and command-line options |
+| `src/config.rs` | Defaults, the default theme, limits, and command-line options |
+| `src/theme.rs` | Theme color roles and the presets file parser |
+| `assets/themes.json` | Bundled theme presets, embedded at build time |
 | `src/model.rs` | Service, resource, panel, and snapshot types |
-| `src/app.rs`, `src/app/` | Selection, focus, filters, action state, and input |
+| `src/app.rs`, `src/app/` | Selection, focus, filters, action state, theme state, and input |
 | `src/operations.rs`, `src/operations/` | Account identity and the allowed action catalog |
 | `src/aws/` | AWS CLI process control, queries, actions, and file transfer |
 | `src/demo.rs` | Local sample data |
@@ -16,6 +18,7 @@ resource data and runs confirmed actions. Rust code forbids `unsafe`.
 | `src/ui/actions.rs` | Action dialog, warnings, and command preview |
 | `src/ui/details.rs` | JSON details, account details, and command output |
 | `src/ui/chrome.rs` | Borders, help, and key bar |
+| `src/ui/themes.rs` | Theme picker popup and its mouse targets |
 | `src/runtime.rs` | Worker, polling, input events, and terminal cleanup |
 | `src/runtime/selection.rs` | Mouse text selection, fixed screen, and plain text copy |
 | `tests/` | UI checks and test data |
@@ -227,3 +230,42 @@ API failures returned with a successful process exit and hidden JSON request
 values in command logs. UI checks cover a long
 menu at the minimum terminal size. The [command inventory](aws-cli-actions.md)
 records supported actions and CLI-only commands.
+
+## Themes
+
+`App::new` loads the presets once. `App::theme` gives the theme to draw. While
+the picker is open, it gives the previewed theme. Each draw function gets the
+theme from the `App` and does not use fixed color constants. `pane_block` and
+the first full-screen fill paint `background` and `text`. The default
+`Terminal` theme uses `reset` for both, so the screen keeps the terminal colors.
+
+```text
+Before
+ui::draw_interactive -> draw_services / draw_side_panels / draw_details_and_log
+                        -> pane_block(title, focused) -> config::*_COLOR
+runtime::run -> TextSelection::draw(frame) -> config::TEXT_SELECTION_*_COLOR
+
+After
++App::new -> theme::load(THEMES_JSON) -> parse_theme -> Color::from_str
++ui::draw_interactive -> App::theme -> Block(theme.base())
+~                     -> draw_services / draw_side_panels / draw_details_and_log
+~                        -> pane_block(title, focused, theme) -> theme fields
++                     -> themes::draw_theme_picker, when open -> MouseTarget::ChooseTheme
+~runtime::run -> TextSelection::draw(frame, App::theme)
++App::handle_key('t') -> open_themes
++App::handle_key, picker open -> handle_theme_key -> apply_theme
++App::handle_mouse, picker open -> ChooseTheme(index) -> apply_theme
+```
+
+```text
+assets/themes.json --include_str!--> THEMES_JSON --theme::load--> Vec<Theme>
+DEFAULT_THEME + Vec<Theme> --> App.themes
+Key t --> App.theme_picker = Some(App.theme)
+j/k --> theme_picker index --> App::theme --> draw functions --> screen colors
+Enter / click --> App.theme = index      Esc / t --> picker closes, theme unchanged
+```
+
+A focused selected row uses `selection_text` on `selection_background`. An
+unfocused selected row uses `text` on `inactive_selection_background`. Thus a
+preset can use a bright accent for the focused row and keep the unfocused row
+readable.
