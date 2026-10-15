@@ -7,6 +7,7 @@ use super::Operation;
 mod ec2;
 mod ecr;
 mod ecs;
+mod lambda;
 mod s3;
 
 #[cfg(test)]
@@ -24,6 +25,7 @@ pub fn available(
         Service::Ecs => ecs::available(panel, resource, primary),
         Service::Ecr => ecr::available(panel, resource, primary),
         Service::S3 => s3::available(panel, resource, primary, snapshot),
+        Service::Lambda => lambda::available(panel, resource, primary),
     }
 }
 

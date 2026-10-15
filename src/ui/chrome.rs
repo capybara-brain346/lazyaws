@@ -54,6 +54,7 @@ pub(super) fn draw_help(frame: &mut Frame, area: Rect) {
         ("Details", "Enter opens  Esc returns  PgUp/PgDn scroll"),
         ("Refresh", "r refresh AWS data"),
         ("Mouse", "Click tabs, panes, rows, and action buttons"),
+        ("Copy", "Drag text; release to copy (OSC 52 required)"),
         ("Actions", "a or right-click a resource; confirm with y"),
         (
             "S3 files",

@@ -1,0 +1,58 @@
+{
+  "listFunctions": {
+    "Functions": [
+      {
+        "FunctionName": "api-handler",
+        "FunctionArn": "arn:aws:lambda:eu-west-1:123456789012:function:api-handler",
+        "Runtime": "python3.12",
+        "Handler": "app.handler",
+        "MemorySize": 512,
+        "Timeout": 30,
+        "LastModified": "2025-10-13T11:20:00Z"
+      },
+      {
+        "FunctionName": "image-processor",
+        "FunctionArn": "arn:aws:lambda:eu-west-1:123456789012:function:image-processor",
+        "Runtime": "nodejs22.x",
+        "Handler": "index.handler",
+        "MemorySize": 1024,
+        "Timeout": 60,
+        "LastModified": "2025-10-14T08:05:00Z"
+      }
+    ]
+  },
+  "listVersions": {
+    "Versions": [
+      {
+        "FunctionName": "api-handler",
+        "FunctionArn": "arn:aws:lambda:eu-west-1:123456789012:function:api-handler:3",
+        "Version": "3",
+        "Runtime": "python3.12",
+        "LastModified": "2025-10-13T11:20:00Z"
+      },
+      {
+        "FunctionName": "api-handler",
+        "FunctionArn": "arn:aws:lambda:eu-west-1:123456789012:function:api-handler:$LATEST",
+        "Version": "$LATEST",
+        "Runtime": "python3.12",
+        "LastModified": "2025-10-14T09:00:00Z"
+      }
+    ]
+  },
+  "listAliases": {
+    "Aliases": [
+      {
+        "AliasArn": "arn:aws:lambda:eu-west-1:123456789012:function:api-handler:prod",
+        "Name": "prod",
+        "FunctionVersion": "3",
+        "Description": "live traffic"
+      }
+    ]
+  },
+  "listTags": {
+    "Tags": {
+      "Environment": "production",
+      "Team": "commerce"
+    }
+  }
+}

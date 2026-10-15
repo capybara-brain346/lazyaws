@@ -9,6 +9,8 @@ use lazyaws::{
 };
 use ratatui::{Terminal, backend::TestBackend, style::Color};
 
+mod mouse;
+
 fn app_with_service(service: Service) -> App {
     let mut app = App::new();
     app.service = service;
@@ -154,9 +156,30 @@ fn renders_selected_resource_json_status_and_sanitized_stale_errors() {
     assert!(text.contains("pf:dev"));
     assert!(text.contains("rg:us-east-1"));
     assert!(text.contains("DEMO"));
-    assert!(text.contains("5s"));
     assert!(!text.contains('\u{1b}'));
     assert!(has_blue_list_row);
+}
+
+#[test]
+fn status_keeps_only_context_during_and_after_refresh() {
+    let mut app = app_with_service(Service::Ec2);
+    app.last_updated = Some(Instant::now() - std::time::Duration::from_secs(65));
+
+    for loading in [false, true] {
+        app.loading = loading;
+        let (text, _) = render(&app, &Config::default(), 180, 36);
+        let status = text
+            .lines()
+            .skip_while(|line| !line.contains("[1] Status"))
+            .nth(1)
+            .unwrap()
+            .split('│')
+            .nth(1)
+            .unwrap()
+            .trim();
+
+        assert_eq!(status, "pf:AWS chain rg:AWS config");
+    }
 }
 
 #[test]
@@ -332,8 +355,11 @@ fn action_dialog_shows_target_warning_command_and_click_targets_at_minimum_size(
     assert!(text.contains("prod"));
     assert!(text.contains("eu-west-1"));
     assert!(text.contains("stop-instances"));
-    assert!(text.contains("Run"));
-    assert!(text.contains("Cancel"));
+    assert!(text.contains("Click Y for yes, N for cancel, or Escape to cancel."));
+    assert!(text.contains("[ Y ]"));
+    assert!(text.contains("[ N ]"));
+    assert!(!text.contains("[ Run ]"));
+    assert!(!text.contains("[ Cancel ]"));
 
     for target in [MouseTarget::ConfirmAction, MouseTarget::CancelAction] {
         let (area, _) = hit_map
@@ -347,7 +373,7 @@ fn action_dialog_shows_target_warning_command_and_click_targets_at_minimum_size(
 }
 
 #[test]
-fn executing_action_shows_wait_state_without_run_or_cancel_controls() {
+fn executing_action_shows_wait_state_without_confirmation_controls() {
     let mut app = app_with_service(Service::Ec2);
     app.actions = Some(ActionDialog {
         operations: vec![sample_operation(None)],
@@ -362,7 +388,8 @@ fn executing_action_shows_wait_state_without_run_or_cancel_controls() {
     let (text, hit_map) = render_with_map(&app, &Config::default(), 60, 20);
     assert!(text.contains("Running action"));
     assert!(text.contains("wait for the result"));
-    assert!(!text.contains("[ Run ]"));
+    assert!(!text.contains("[ Y ]"));
+    assert!(!text.contains("[ N ]"));
     assert!(!text.contains("[ Cancel ]"));
     assert!(!hit_map.regions.iter().any(|(_, target)| {
         matches!(
@@ -426,5 +453,34 @@ fn parameter_dialog_shows_input_error_and_accept_button() {
     assert_eq!(
         hit_map.target_at(area.x, area.y),
         Some(MouseTarget::ConfirmAction)
+    );
+}
+
+#[test]
+fn long_action_menu_keeps_the_selected_row_visible_and_clickable() {
+    let mut app = app_with_service(Service::S3);
+    let mut last = sample_operation(None);
+    last.label = "Last bucket action";
+    let mut operations = vec![sample_operation(None); 20];
+    operations.push(last);
+    app.actions = Some(ActionDialog {
+        operations,
+        selected: 20,
+        confirming: false,
+        editing: false,
+        input: String::new(),
+        error: None,
+    });
+
+    let (text, hit_map) = render_with_map(&app, &Config::default(), 60, 20);
+    assert!(text.contains("Last bucket action"));
+    let (area, _) = hit_map
+        .regions
+        .iter()
+        .find(|(_, target)| *target == MouseTarget::ChooseAction(20))
+        .expect("selected action is clickable");
+    assert_eq!(
+        hit_map.target_at(area.x, area.y),
+        Some(MouseTarget::ChooseAction(20))
     );
 }

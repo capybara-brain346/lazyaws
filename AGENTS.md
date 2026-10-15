@@ -29,6 +29,10 @@ Run from the repository root:
 
 Do not report a command as passing unless it actually completed successfully. If a command is known to be unavailable, flaky, environment-dependent, or currently empty, state that clearly.
 
+## Rust Skills
+
+Use the rust-skills when implementing rust code to ensure production level rust code.
+
 ## Ponytail
 
 Use the `ponytail` skill at its default `full` level for implementation, fixes, refactors, and reviews. Prefer the smallest correct change and do not add speculative abstractions or dependencies.

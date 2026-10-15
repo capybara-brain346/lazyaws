@@ -8,6 +8,7 @@ pub fn snapshot(service: Service, selected: Option<&str>) -> Snapshot {
         Service::Ecs => ecs(selected),
         Service::Ecr => ecr(selected),
         Service::S3 => s3(selected),
+        Service::Lambda => lambda(selected),
     };
     let mut snapshot = Snapshot::empty(service);
     for (panel, items) in snapshot.panels.iter_mut().zip(items) {
@@ -123,7 +124,7 @@ fn ecs(selected: Option<&str>) -> [Vec<Resource>; 4] {
     let (services, tasks, definitions) = if id == staging {
         (
             vec![resource(
-                "web-staging",
+                "arn:aws:ecs:us-east-1:123456789012:service/staging/web",
                 "web",
                 "1/1 running · Fargate",
                 json!({"serviceName":"web","desiredCount":1,"runningCount":1,"launchType":"FARGATE","context":id}),
@@ -132,7 +133,7 @@ fn ecs(selected: Option<&str>) -> [Vec<Resource>; 4] {
                 "task-staging-7f1a",
                 "web · RUNNING",
                 "Fargate · started 18 minutes ago",
-                json!({"taskArn":"arn:aws:ecs:us-east-1:123456789012:task/staging/7f1a","lastStatus":"RUNNING","cpu":"256","memory":"512","context":id}),
+                json!({"taskArn":"arn:aws:ecs:us-east-1:123456789012:task/staging/7f1a","taskDefinitionArn":"arn:aws:ecs:us-east-1:123456789012:task-definition/web:12","launchType":"FARGATE","lastStatus":"RUNNING","cpu":"256","memory":"512","context":id}),
             )],
             vec![resource(
                 "web:12",
@@ -145,13 +146,13 @@ fn ecs(selected: Option<&str>) -> [Vec<Resource>; 4] {
         (
             vec![
                 resource(
-                    "api-prod",
+                    "arn:aws:ecs:us-east-1:123456789012:service/production/api",
                     "api",
                     "2/2 running · Fargate",
                     json!({"serviceName":"api","desiredCount":2,"runningCount":2,"launchType":"FARGATE","context":id}),
                 ),
                 resource(
-                    "worker-prod",
+                    "arn:aws:ecs:us-east-1:123456789012:service/production/worker",
                     "worker",
                     "2/2 running · Fargate Spot",
                     json!({"serviceName":"worker","desiredCount":2,"runningCount":2,"launchType":"FARGATE","capacityProvider":"FARGATE_SPOT","context":id}),
@@ -162,13 +163,13 @@ fn ecs(selected: Option<&str>) -> [Vec<Resource>; 4] {
                     "task-api-45d2",
                     "api · RUNNING",
                     "Fargate · started 6 minutes ago",
-                    json!({"taskArn":"arn:aws:ecs:us-east-1:123456789012:task/production/45d2","lastStatus":"RUNNING","cpu":"512","memory":"1024","context":id}),
+                    json!({"taskArn":"arn:aws:ecs:us-east-1:123456789012:task/production/45d2","taskDefinitionArn":"arn:aws:ecs:us-east-1:123456789012:task-definition/api:28","launchType":"FARGATE","lastStatus":"RUNNING","cpu":"512","memory":"1024","context":id}),
                 ),
                 resource(
                     "task-worker-a913",
                     "worker · RUNNING",
                     "Fargate Spot · started 11 minutes ago",
-                    json!({"taskArn":"arn:aws:ecs:us-east-1:123456789012:task/production/a913","lastStatus":"RUNNING","cpu":"1024","memory":"2048","context":id}),
+                    json!({"taskArn":"arn:aws:ecs:us-east-1:123456789012:task/production/a913","taskDefinitionArn":"arn:aws:ecs:us-east-1:123456789012:task-definition/worker:9","launchType":"FARGATE","lastStatus":"RUNNING","cpu":"1024","memory":"2048","context":id}),
                 ),
             ],
             vec![
@@ -198,13 +199,13 @@ fn ecr(selected: Option<&str>) -> [Vec<Resource>; 4] {
             api,
             "api",
             "private · scan on push · AES-256",
-            json!({"repositoryName":"api","repositoryUri":"123456789012.dkr.ecr.us-east-1.amazonaws.com/api","imageTagMutability":"IMMUTABLE","imageScanningConfiguration":{"scanOnPush":true}}),
+            json!({"repositoryName":"api","repositoryArn":api,"repositoryUri":"123456789012.dkr.ecr.us-east-1.amazonaws.com/api","imageTagMutability":"IMMUTABLE","imageScanningConfiguration":{"scanOnPush":true}}),
         ),
         resource(
             worker,
             "worker",
             "private · scan on push · AES-256",
-            json!({"repositoryName":"worker","repositoryUri":"123456789012.dkr.ecr.us-east-1.amazonaws.com/worker","imageTagMutability":"MUTABLE","imageScanningConfiguration":{"scanOnPush":true}}),
+            json!({"repositoryName":"worker","repositoryArn":worker,"repositoryUri":"123456789012.dkr.ecr.us-east-1.amazonaws.com/worker","imageTagMutability":"MUTABLE","imageScanningConfiguration":{"scanOnPush":true}}),
         ),
     ];
     let id = selected_id(&parents, selected);
@@ -380,6 +381,110 @@ fn s3(selected: Option<&str>) -> [Vec<Resource>; 4] {
         )
     };
     [parents, objects, prefixes, settings]
+}
+
+fn lambda(selected: Option<&str>) -> [Vec<Resource>; 4] {
+    let api = "arn:aws:lambda:us-east-1:123456789012:function:api-handler";
+    let images = "arn:aws:lambda:us-east-1:123456789012:function:image-processor";
+    let parents = vec![
+        resource(
+            api,
+            "api-handler",
+            "python3.12 · 512 MB · 30s",
+            json!({"FunctionName":"api-handler","FunctionArn":api,"Runtime":"python3.12","Handler":"app.handler","MemorySize":512,"Timeout":30,"LastModified":"2025-10-13T11:20:00Z","State":"Active"}),
+        ),
+        resource(
+            images,
+            "image-processor",
+            "nodejs22.x · 1024 MB · 60s",
+            json!({"FunctionName":"image-processor","FunctionArn":images,"Runtime":"nodejs22.x","Handler":"index.handler","MemorySize":1024,"Timeout":60,"LastModified":"2025-10-14T08:05:00Z","State":"Active"}),
+        ),
+    ];
+    let id = selected_id(&parents, selected);
+    let (versions, aliases, tags) = if id == images {
+        (
+            vec![
+                resource(
+                    &format!("{id}:5"),
+                    "v5",
+                    "nodejs22.x · 2025-10-14T08:05:00Z",
+                    json!({"FunctionArn":format!("{id}:5"),"Version":"5","Runtime":"nodejs22.x","LastModified":"2025-10-14T08:05:00Z","context":id}),
+                ),
+                resource(
+                    &format!("{id}:$LATEST"),
+                    "$LATEST",
+                    "nodejs22.x · 2025-10-14T08:12:00Z",
+                    json!({"FunctionArn":format!("{id}:$LATEST"),"Version":"$LATEST","Runtime":"nodejs22.x","LastModified":"2025-10-14T08:12:00Z","context":id}),
+                ),
+            ],
+            vec![resource(
+                &format!("{id}:prod"),
+                "prod",
+                "-> 5 · live traffic",
+                json!({"AliasArn":format!("{id}:prod"),"Name":"prod","FunctionVersion":"5","Description":"live traffic","context":id}),
+            )],
+            vec![
+                resource(
+                    "Environment",
+                    "Environment",
+                    "production",
+                    json!({"Key":"Environment","Value":"production","context":id}),
+                ),
+                resource(
+                    "Team",
+                    "Team",
+                    "platform",
+                    json!({"Key":"Team","Value":"platform","context":id}),
+                ),
+            ],
+        )
+    } else {
+        (
+            vec![
+                resource(
+                    &format!("{id}:3"),
+                    "v3",
+                    "python3.12 · 2025-10-13T11:20:00Z",
+                    json!({"FunctionArn":format!("{id}:3"),"Version":"3","Runtime":"python3.12","LastModified":"2025-10-13T11:20:00Z","context":id}),
+                ),
+                resource(
+                    &format!("{id}:2"),
+                    "v2",
+                    "python3.12 · 2025-10-11T16:44:00Z",
+                    json!({"FunctionArn":format!("{id}:2"),"Version":"2","Runtime":"python3.12","LastModified":"2025-10-11T16:44:00Z","context":id}),
+                ),
+            ],
+            vec![
+                resource(
+                    &format!("{id}:prod"),
+                    "prod",
+                    "-> 3 · live traffic",
+                    json!({"AliasArn":format!("{id}:prod"),"Name":"prod","FunctionVersion":"3","Description":"live traffic","context":id}),
+                ),
+                resource(
+                    &format!("{id}:staging"),
+                    "staging",
+                    "-> 3 · canary 10%",
+                    json!({"AliasArn":format!("{id}:staging"),"Name":"staging","FunctionVersion":"3","Description":"canary 10%","context":id}),
+                ),
+            ],
+            vec![
+                resource(
+                    "Environment",
+                    "Environment",
+                    "production",
+                    json!({"Key":"Environment","Value":"production","context":id}),
+                ),
+                resource(
+                    "Team",
+                    "Team",
+                    "commerce",
+                    json!({"Key":"Team","Value":"commerce","context":id}),
+                ),
+            ],
+        )
+    };
+    [parents, versions, aliases, tags]
 }
 
 #[cfg(test)]

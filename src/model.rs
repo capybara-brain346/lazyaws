@@ -6,10 +6,11 @@ pub enum Service {
     Ecs,
     Ecr,
     S3,
+    Lambda,
 }
 
 impl Service {
-    pub const ALL: [Self; 4] = [Self::Ec2, Self::Ecs, Self::Ecr, Self::S3];
+    pub const ALL: [Self; 5] = [Self::Ec2, Self::Ecs, Self::Ecr, Self::S3, Self::Lambda];
 
     pub fn name(self) -> &'static str {
         match self {
@@ -17,6 +18,7 @@ impl Service {
             Self::Ecs => "ECS",
             Self::Ecr => "ECR",
             Self::S3 => "S3",
+            Self::Lambda => "Lambda",
         }
     }
 
@@ -33,6 +35,7 @@ impl Service {
             Self::Ecs => ["Clusters", "Services", "Tasks", "Task definitions"],
             Self::Ecr => ["Repositories", "Images", "Image tags", "Repository tags"],
             Self::S3 => ["Buckets", "Objects", "Prefixes", "Bucket settings"],
+            Self::Lambda => ["Functions", "Versions", "Aliases", "Tags"],
         }
     }
 }

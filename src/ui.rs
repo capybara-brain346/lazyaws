@@ -19,8 +19,7 @@ use details::draw_details_and_log;
 use crate::{
     app::App,
     config::{
-        self, Config, FOOTER_HEIGHT, MIN_HEIGHT, MIN_WIDTH, POLL_INTERVAL, SERVICE_BAR_HEIGHT,
-        STATUS_PANEL_HEIGHT,
+        self, Config, FOOTER_HEIGHT, MIN_HEIGHT, MIN_WIDTH, SERVICE_BAR_HEIGHT, STATUS_PANEL_HEIGHT,
     },
     model::{Resource, Service},
 };
@@ -254,37 +253,19 @@ fn draw_status(
         .region
         .as_deref()
         .unwrap_or(config::DEFAULT_REGION_LABEL);
-    let mode = if config.demo {
-        Span::styled(
-            " DEMO",
-            Style::default()
-                .fg(config::WARNING_COLOR)
-                .add_modifier(Modifier::BOLD),
-        )
-    } else {
-        Span::styled(" LIVE", Style::default().fg(config::FOCUS_COLOR))
-    };
     let mut spans = vec![
         Span::styled(" pf:", Style::default().fg(config::TITLE_COLOR)),
         Span::raw(safe_text(profile)),
         Span::styled(" rg:", Style::default().fg(config::TITLE_COLOR)),
         Span::raw(safe_text(region)),
-        mode,
-        Span::styled(
-            format!(" {}s", POLL_INTERVAL.as_secs()),
-            Style::default().fg(config::MUTED_COLOR),
-        ),
     ];
 
-    if app.loading {
+    if config.demo {
         spans.push(Span::styled(
-            " loading",
-            Style::default().fg(config::WARNING_COLOR),
-        ));
-    } else if let Some(updated) = app.last_updated {
-        spans.push(Span::styled(
-            format!(" u{}s", updated.elapsed().as_secs()),
-            Style::default().fg(config::MUTED_COLOR),
+            " DEMO",
+            Style::default()
+                .fg(config::WARNING_COLOR)
+                .add_modifier(Modifier::BOLD),
         ));
     }
 

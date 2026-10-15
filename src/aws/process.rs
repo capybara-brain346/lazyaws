@@ -93,7 +93,9 @@ impl FetchContext<'_> {
             Ok(value) => {
                 logs.push(format!("{printable} [ok]"));
                 if has_more(&value) {
-                    logs.push(format!("notice: {printable} reached the {MAX_ITEMS} item limit; results are incomplete"));
+                    logs.push(format!(
+                        "notice: {printable} returned a continuation token; results are incomplete"
+                    ));
                 }
                 Ok(value)
             }
@@ -106,11 +108,16 @@ impl FetchContext<'_> {
 }
 
 fn validate_response(command: &[String], response: &Value) -> Result<(), String> {
-    if command.first().map(String::as_str) != Some("ecr")
-        || command.get(1).map(String::as_str) != Some("batch-delete-image")
-    {
-        return Ok(());
-    }
+    let (service, name) = (
+        command.first().map(String::as_str),
+        command.get(1).map(String::as_str),
+    );
+    let message = match (service, name) {
+        (Some("ecr"), Some("batch-delete-image")) => "ECR could not delete image(s)",
+        (Some("ecr"), Some("batch-get-image")) => "ECR could not read image(s)",
+        (Some("ecs"), Some("run-task")) => "ECS could not start task(s)",
+        _ => return Ok(()),
+    };
 
     let failures = match response.get("failures") {
         None => return Ok(()),
@@ -120,6 +127,18 @@ fn validate_response(command: &[String], response: &Value) -> Result<(), String>
     let failures = failures
         .iter()
         .map(|failure| {
+            if service == Some("ecs") {
+                let arn = failure
+                    .get("arn")
+                    .and_then(Value::as_str)
+                    .unwrap_or("unknown task");
+                let reason = failure
+                    .get("reason")
+                    .and_then(Value::as_str)
+                    .unwrap_or("unknown reason");
+                let detail = failure.get("detail").and_then(Value::as_str).unwrap_or("");
+                return Ok(format!("{arn}: {reason}: {detail}"));
+            }
             let image = failure
                 .get("imageId")
                 .ok_or("AWS response image failure is missing `imageId`")?;
@@ -142,10 +161,7 @@ fn validate_response(command: &[String], response: &Value) -> Result<(), String>
     if failures.is_empty() {
         Ok(())
     } else {
-        Err(format!(
-            "ECR could not delete image(s): {}",
-            failures.join("; ")
-        ))
+        Err(format!("{message}: {}", failures.join("; ")))
     }
 }
 
@@ -331,9 +347,16 @@ fn join_reader(reader: thread::JoinHandle<Captured>) -> Result<Captured, String>
 }
 
 fn display_command(binary: &str, args: &[String]) -> String {
-    std::iter::once(binary)
-        .chain(args.iter().map(String::as_str))
-        .map(|part| format!("{part:?}"))
+    std::iter::once(format!("{binary:?}"))
+        .chain(args.iter().enumerate().map(|(index, part)| {
+            if index > 0
+                && (args[index - 1] == "--cli-input-json" || args[index - 1] == "--payload")
+            {
+                "\"[JSON input hidden]\"".into()
+            } else {
+                format!("{part:?}")
+            }
+        }))
         .collect::<Vec<_>>()
         .join(" ")
 }

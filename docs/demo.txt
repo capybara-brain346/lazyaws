@@ -1,8 +1,8 @@
- lazyaws  EC2  ECS  ECR  S3   [/] switch service
+ lazyaws  EC2  ECS  ECR  S3  Lambda  [/] switch service
  Account: 123456789012 · user/lazyaws-demo
 
 ╭ [1] Status ──────────────────────────╮ ╭ [0] Details ────────────────────────────────────────────────────────────────╮
-│ pf:AWS chain rg:AWS config DEMO 5s u3│ │{                                                                            │
+│ pf:AWS chain rg:AWS config DEMO      │ │{                                                                            │
 ╰──────────────────────────────────────╯ │  "availabilityZone": "us-east-1a",                                          │
 ╭ [2] Instances (2/2) ─────────────────╮ │  "instanceId": "i-0a12bc34de56f7890",                                       │
 │ api-prod-1  running · t3.medium · us-│ │  "instanceType": "t3.medium",                                               │

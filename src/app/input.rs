@@ -15,6 +15,7 @@ pub enum Action {
     None,
     Quit,
     Refresh,
+    Copy(String),
     Execute(crate::operations::Operation, String),
 }
 
@@ -59,13 +60,13 @@ impl App {
                 self.open_actions();
                 Action::None
             }
-            KeyCode::Char('[') => self.change_service(Service::ALL[(self.service.index() + 3) % 4]),
-            KeyCode::Char(']') => self.change_service(Service::ALL[(self.service.index() + 1) % 4]),
+            KeyCode::Char('[') => self.change_service(Service::ALL[(self.service.index() + 4) % 5]),
+            KeyCode::Char(']') => self.change_service(Service::ALL[(self.service.index() + 1) % 5]),
             KeyCode::Left if key.modifiers.contains(KeyModifiers::SHIFT) => {
-                self.change_service(Service::ALL[(self.service.index() + 3) % 4])
+                self.change_service(Service::ALL[(self.service.index() + 4) % 5])
             }
             KeyCode::Right if key.modifiers.contains(KeyModifiers::SHIFT) => {
-                self.change_service(Service::ALL[(self.service.index() + 1) % 4])
+                self.change_service(Service::ALL[(self.service.index() + 1) % 5])
             }
             KeyCode::Char('?') => {
                 self.help = !self.help;

@@ -37,7 +37,7 @@ pub struct App {
     pub executing: bool,
     pub account: Option<Result<AccountContext, String>>,
     pub operation_output: Option<String>,
-    service_states: [ServiceState; 4],
+    service_states: [ServiceState; 5],
     detail_panel: usize,
     filter_panel: usize,
 }

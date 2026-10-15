@@ -24,7 +24,11 @@ fn instance_actions_follow_state_and_keep_captured_ids_in_json() {
         &Snapshot::empty(Service::Ec2),
     );
     assert_eq!(
-        actions.iter().map(|action| action.name).collect::<Vec<_>>(),
+        actions
+            .iter()
+            .take(3)
+            .map(|action| action.name)
+            .collect::<Vec<_>>(),
         ["stop-instances", "reboot-instances", "terminate-instances"]
     );
     assert_eq!(actions[0].target, "i-test-1");

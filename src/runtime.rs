@@ -10,6 +10,7 @@ use std::{
 };
 
 use crossterm::{
+    clipboard::CopyToClipboard,
     event::{self, DisableMouseCapture, EnableMouseCapture, Event},
     execute,
 };
@@ -24,6 +25,10 @@ use crate::{
     operations::{AccountContext, Operation},
     ui,
 };
+
+mod selection;
+
+use selection::TextSelection;
 
 struct Request {
     generation: u64,
@@ -254,6 +259,8 @@ pub fn run(config: Config) -> io::Result<()> {
     let mut generation = 0;
     worker.request(&mut app, &mut generation)?;
     let mut last_request = Instant::now();
+    let mut selection = TextSelection::default();
+    let mut hit_map = ui::HitMap::default();
 
     loop {
         while let Ok(response) = worker.responses.try_recv() {
@@ -307,15 +314,25 @@ pub fn run(config: Config) -> io::Result<()> {
             last_request = Instant::now();
         }
 
-        let mut hit_map = ui::HitMap::default();
-        terminal.draw(|frame| {
-            hit_map = ui::draw_interactive(frame, &app, &config);
+        let screen = terminal.draw(|frame| {
+            if !selection.draw(frame) {
+                hit_map = ui::draw_interactive(frame, &app, &config);
+            }
         })?;
 
         if event::poll(EVENT_WAIT)? {
             let action = match event::read()? {
-                Event::Key(key) => app.handle_key(key),
-                Event::Mouse(mouse) => app.handle_mouse(mouse, &hit_map),
+                Event::Key(key) => {
+                    selection.clear();
+                    app.handle_key(key)
+                }
+                Event::Mouse(mouse) => {
+                    selection.handle_mouse(mouse, screen.buffer, &mut app, &hit_map)
+                }
+                Event::Resize(_, _) | Event::FocusLost => {
+                    selection.clear();
+                    Action::None
+                }
                 _ => Action::None,
             };
             match action {
@@ -326,6 +343,13 @@ pub fn run(config: Config) -> io::Result<()> {
                 }
                 Action::Execute(operation, value) => {
                     worker.execute(operation, value, &mut generation)?;
+                }
+                Action::Copy(text) => {
+                    if let Err(error) =
+                        execute!(io::stdout(), CopyToClipboard::to_clipboard_from(text))
+                    {
+                        append_logs(&mut app, [format!("Clipboard copy failed: {error}")]);
+                    }
                 }
                 Action::None => {}
             }
@@ -443,7 +467,7 @@ mod tests {
                     result,
                     ..
                 } if response_generation == generation => {
-                    assert_eq!(result.unwrap().service, Service::S3);
+                    assert_eq!(result.unwrap().service, Service::Lambda);
                     break;
                 }
                 Response::Execute { .. } => panic!("unexpected operation response"),

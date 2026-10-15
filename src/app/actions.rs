@@ -93,8 +93,7 @@ impl App {
     }
 
     pub(super) fn open_actions_for(&mut self, panel: usize, index: usize) {
-        if self.loading
-            || self.filtering
+        if self.filtering
             || self.executing
             || self.actions.is_some()
             || !matches!(self.account.as_ref(), Some(Ok(_)))
@@ -179,8 +178,10 @@ impl App {
                 _ => {}
             }
         } else if dialog.confirming {
-            if key.code == KeyCode::Char('y') {
-                return self.confirm_action();
+            match key.code {
+                KeyCode::Char('y' | 'Y') => return self.confirm_action(),
+                KeyCode::Char('n' | 'N') => self.actions = None,
+                _ => {}
             }
         } else {
             match key.code {

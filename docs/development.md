@@ -17,6 +17,7 @@ resource data and runs confirmed actions. Rust code forbids `unsafe`.
 | `src/ui/details.rs` | JSON details, account details, and command output |
 | `src/ui/chrome.rs` | Borders, help, and key bar |
 | `src/runtime.rs` | Worker, polling, input events, and terminal cleanup |
+| `src/runtime/selection.rs` | Mouse text selection, fixed screen, and plain text copy |
 | `tests/` | UI checks and test data |
 
 `ui::draw(frame, app, config)` remains a wrapper for callers that need no mouse
@@ -74,6 +75,11 @@ action dialog or help screen is open. The dialog shows the selected account,
 target, warning, and computed command. Input and CLI output pass through the UI
 text sanitizer before display.
 
+`App::open_actions_for` permits actions for loaded rows while a refresh runs.
+It still checks the account, selected row, filter, and panel errors. A new
+primary selection clears related rows before it requests a refresh. The dialog
+keeps the target and arguments captured when it opens.
+
 ## Event sequence
 
 ```text
@@ -129,3 +135,95 @@ AWS actions have a 20-second command time limit. A timed-out action can still
 finish in AWS. Refresh the resource before you try it again.
 
 No data migration or code generation is required.
+
+## Mouse text selection
+
+The runtime holds a screen buffer while the left mouse button is down. It
+defers a left click until release. A drag selects a rectangle and returns
+`Action::Copy` instead of passing the click to `App`. This prevents a text
+selection from changing a row, opening a dialog, or running an action. Selection
+also works while an action runs and while a dialog or help screen is open.
+Keys, resize, focus loss, and other mouse actions clear the selection.
+
+```text
+Before
+runtime::run -> App::handle_mouse -> HitMap::target_at
+
+After
++ runtime::run -> TextSelection::handle_mouse
++   -> App::handle_mouse -> HitMap::target_at (click on release)
++   -> Drag::update -> Drag::text -> Action::Copy (drag on release)
++ runtime::run -> TextSelection::draw -> Frame::buffer_mut
++ runtime::run -> CopyToClipboard::to_clipboard_from -> execute!
+```
+
+```text
+Displayed Buffer -> fixed Buffer -> rectangle -> plain text -> OSC 52 -> clipboard
+```
+
+```text
+User             Runtime             TextSelection          Terminal
+ |-- press -------->|-- screen ---------->|
+ |-- drag --------->|-- coordinates ----->|
+ |                  |<-- highlight ------|
+ |                  |-- frame -------------------------------->|
+ |-- release ------>|-- coordinates ----->|
+ |                  |<-- Action::Copy ---|
+ |                  |-- OSC 52 text --------------------------->|
+```
+
+The copy path uses Crossterm's `osc52` feature. It does not read the clipboard.
+The terminal and any multiplexer must allow OSC 52 writes. There is no reply
+that confirms a clipboard write. Output errors enter the command log without
+the selected text. Tests check click/drag separation, fixed text, Unicode,
+blank selection, cancellation, resize, and rows in each service.
+
+## Expanded action catalog
+
+The action catalog now supplies read and change commands for all resource tabs.
+The existing worker and confirmation path run them. No worker or query API changed. Demo data includes service ARNs, task definition
+ARNs, and repository ARNs for the added actions.
+
+```text
+Before
+App::open_actions_for -> operations::available -> service::available -> operation
+App::confirm_action -> Operation::args -> existing count/file checks
+AwsCli::execute -> FetchContext::invoke_region -> validate_response (ECR deletion)
+ui::draw_interactive -> draw_action_dialog -> draw_action_menu (first rows)
+
+After
+= App::open_actions_for -> operations::available -> service::available -> operation
++ service::available supplies added action descriptors
++ App::confirm_action -> Operation::args -> JSON/tag/revision/deployment checks
++ AwsCli::execute -> Operation::args -> captured GetObject bucket/key flags
+= AwsCli::execute -> FetchContext::invoke_region
++                                      -> validate_response (ECR read/delete, ECS run-task)
+~ FetchContext::invoke_region -> display_command (JSON input hidden in logs)
+~ ui::draw_interactive -> draw_action_dialog -> draw_action_menu (selected row window)
+```
+
+`=` marks an existing call, `+` marks added behavior, and `~` marks changed behavior.
+`service::available` refers to the EC2, ECS, ECR, S3, or Lambda catalog function chosen
+by `operations::available`. JSON fields add to a captured input object; they
+cannot replace fixed top-level fields or set `registryId`. Text tag input keeps
+the key. ECS revision and deployment ARN input keeps the account and Region.
+The allowed CLI paginators use `MAX_ITEMS` from config. ECS deployment lists
+use API pagination; the command log reports a returned token.
+
+```text
+Selected resource --> catalog --> Operation + input --> Operation::args
+Operation::args --> checked CLI arguments --> worker --> AWS CLI
+AWS CLI --> JSON --> validate_response --> result or error --> App Details
+```
+
+S3 GetObject uses captured `--bucket=...` and `--key=...` arguments.
+The AWS CLI streaming command does not support `--cli-input-json`. The equals
+form keeps a key that starts with `--` inside the value. The destination remains
+the final argument, so the existing download stage can replace it.
+
+The action menu computes its first row from the selected action and available
+height. Mouse targets keep the original action index. The fake CLI tests check
+API failures returned with a successful process exit and hidden JSON request
+values in command logs. UI checks cover a long
+menu at the minimum terminal size. The [command inventory](aws-cli-actions.md)
+records supported actions and CLI-only commands.

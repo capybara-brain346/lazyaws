@@ -1,13 +1,15 @@
 # Lazy AWS
 
-Lazy AWS is a Rust terminal interface for EC2, ECS, ECR, and S3. It uses a
+Lazy AWS is a Rust terminal interface for EC2, ECS, ECR, S3, and Lambda. It uses a
 [Lazygit layout](https://github.com/jesseduffield/lazygit/blob/master/docs/Config.md)
 with five panes, a detail pane, a command log, and a key bar. The bottom left
 pane grows when it has focus. The command log is compact on short terminals.
 See [a captured demo screen](docs/demo.txt).
 
 Lazy AWS shows resource lists, filters, and JSON details. It also runs the
-actions in [the service guide](docs/services.md). The action dialog shows the
+actions in [the service guide](docs/services.md). The
+[AWS CLI action inventory](docs/aws-cli-actions.md) lists commands for all tabs
+and marks commands that remain CLI-only. The action dialog shows the
 account, target, warning, and command before it runs.
 
 ## Run
@@ -32,7 +34,7 @@ if your profile uses SSO.
 ## Screen and keys
 
 ```text
-+---------------- EC2 | ECS | ECR | S3 ----------------+
++---------------- EC2 | ECS | ECR | S3 | Lambda ----------+
 | Account: 123456789012 · assumed-role/ops/alice       |
 | Filter                                               |
 |-------------------|---------------------------------|
@@ -64,17 +66,36 @@ if your profile uses SSO.
 | Up / Down in the action menu | Select an action |
 | Enter or click an action | Choose it |
 | Enter or click Accept while editing | Check and accept the value |
-| `y` or click Run | Run the confirmed action |
-| Esc or click Cancel | Close the action dialog |
+| `y` / `Y` or click Y | Run the confirmed action |
+| `n` / `N` or click N at confirmation | Cancel the action |
+| Esc or click Cancel in the menu or input dialog | Close the action dialog |
 | Mouse click on a tab, pane, or row | Change service, focus, or selection |
 | Mouse wheel over a list or details | Move the selection or scroll details |
+| Left mouse drag, then release | Select a rectangle of text and copy it |
 | `?` | Show keys |
 | `q`, Ctrl+C | Exit |
 
-The `a actions` footer opens actions for the focused row. The header shows the
-account ID and short principal. Press `1` to focus Status. The detail pane then
+The `a actions` footer opens actions for the focused row, including while data
+refreshes. Click a row to select it before you click the footer. The header shows
+the account ID and short principal. Press `1` to focus Status. The detail pane then
 shows the full account ARN, user ID, profile, and region. An identity error
 replaces the account details. Lazy AWS does not show credentials or tokens.
+
+Drag with the left mouse button to select visible text in any service, pane,
+or dialog. Release to copy the highlighted text. A click without a drag keeps
+its normal action. The screen stays fixed during selection. Copy includes only
+the visible rectangle; scroll first to show other data. Trailing spaces are
+removed from each copied line.
+
+Copy uses the terminal's OSC 52 clipboard support. Enable clipboard writes in
+your terminal. If you use tmux or another terminal multiplexer, it must allow
+OSC 52 too. See the [clipboard support notes](https://docs.rs/crossterm/0.29.0/crossterm/clipboard/struct.CopyToClipboard.html#terminal-support).
+
+Status shows `pf` (profile) and `rg` (Region). `AWS chain` means the AWS CLI
+selects the credentials from its configuration and environment. `AWS config`
+means the AWS CLI selects the Region. `DEMO` marks local sample data.
+Status does not show refresh timers or loading text. Automatic refresh stays
+active.
 
 The action list depends on the selected resource and its state. The dialog asks
 for confirmation before it runs an action, including read actions. A file

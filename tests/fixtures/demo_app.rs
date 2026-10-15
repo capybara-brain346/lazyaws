@@ -304,7 +304,10 @@ fn ecs_snapshot() -> Snapshot {
 fn action_parameter_requires_lock_then_y_and_keeps_the_captured_target() {
     let mut app = ecs_app();
     app.open_actions();
-    assert_eq!(app.actions.as_ref().unwrap().operations.len(), 3);
+    assert_eq!(
+        app.actions.as_ref().unwrap().operations[1].parameter,
+        Some("Desired task count")
+    );
     assert_eq!(app.handle_key(key(KeyCode::Char('j'))), Action::None);
     assert_eq!(app.handle_key(key(KeyCode::Enter)), Action::None);
     assert!(app.actions.as_ref().unwrap().editing);
@@ -358,6 +361,26 @@ fn action_dialog_cancels_and_does_not_run_on_a_second_enter() {
     assert!(app.actions.is_some());
     assert_eq!(app.handle_key(key(KeyCode::Esc)), Action::None);
     assert!(app.actions.is_none());
+
+    for character in ['n', 'N'] {
+        app.open_actions();
+        app.handle_key(key(KeyCode::Enter));
+        assert_eq!(app.handle_key(key(KeyCode::Char(character))), Action::None);
+        assert!(app.actions.is_none());
+        assert!(!app.executing);
+    }
+
+    for character in ['y', 'Y'] {
+        app.open_actions();
+        app.handle_key(key(KeyCode::Enter));
+        assert!(matches!(
+            app.handle_key(key(KeyCode::Char(character))),
+            Action::Execute(_, _)
+        ));
+        assert!(app.executing);
+        app.executing = false;
+        app.actions = None;
+    }
 
     app.operation_output = Some("completed".into());
     let mut refreshed = ecs_snapshot();

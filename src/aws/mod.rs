@@ -2,6 +2,7 @@ mod common;
 mod ec2;
 mod ecr;
 mod ecs;
+mod lambda;
 mod process;
 mod s3;
 mod transfers;
@@ -26,6 +27,8 @@ pub struct AwsCli {
     config: Config,
     cancel: Arc<AtomicBool>,
 }
+
+pub(crate) const INVOKE_OUTPUT_PLACEHOLDER: &str = transfers::INVOKE_OUTPUT_PLACEHOLDER;
 
 pub(super) struct FetchContext<'a> {
     client: &'a AwsCli,
@@ -97,6 +100,19 @@ impl AwsCli {
         } else {
             None
         };
+        let invoke = if operation.service == "lambda" && operation.name == "invoke" {
+            let placeholder = args
+                .pop()
+                .ok_or("Invoke operation is missing its output placeholder")?;
+            if placeholder != transfers::INVOKE_OUTPUT_PLACEHOLDER {
+                return Err("Invoke operation is missing its output placeholder".into());
+            }
+            let stage = transfers::InvokeOutput::new()?;
+            args.push(stage.output_path()?);
+            Some(stage)
+        } else {
+            None
+        };
         let context = FetchContext {
             client: self,
             deadline: Instant::now() + REFRESH_TIMEOUT,
@@ -105,6 +121,9 @@ impl AwsCli {
         let response = context.invoke_region(logs, &args, false, operation.region.as_deref())?;
         if let Some(download) = download {
             download.commit()?;
+        }
+        if let Some(invoke) = invoke {
+            return invoke.into_response(response);
         }
         Ok(response)
     }
@@ -124,6 +143,7 @@ impl AwsCli {
             Service::Ecs => ecs::fetch(&context, selected),
             Service::Ecr => ecr::fetch(&context, selected),
             Service::S3 => s3::fetch(&context, selected),
+            Service::Lambda => lambda::fetch(&context, selected),
         })
     }
 }

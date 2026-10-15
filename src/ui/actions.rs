@@ -72,6 +72,9 @@ fn draw_action_menu(
     ))];
     let first_row = content.y.saturating_add(1);
     let visible_rows = button_y.saturating_sub(first_row);
+    let start = dialog
+        .selected
+        .saturating_sub(usize::from(visible_rows).saturating_sub(1));
 
     if dialog.operations.is_empty() {
         lines.push(Line::from(Span::styled(
@@ -82,14 +85,15 @@ fn draw_action_menu(
         for (index, operation) in dialog
             .operations
             .iter()
-            .take(usize::from(visible_rows))
             .enumerate()
+            .skip(start)
+            .take(usize::from(visible_rows))
         {
             lines.push(action_menu_line(operation, index == dialog.selected));
             hit_map.regions.push((
                 Rect::new(
                     content.x,
-                    first_row.saturating_add(index as u16),
+                    first_row.saturating_add((index - start) as u16),
                     content.width,
                     1,
                 ),
@@ -163,7 +167,7 @@ fn draw_selected_action(
             } else if dialog.editing {
                 "Enter accepts this value · Esc cancels"
             } else {
-                "Value accepted · y or Run executes"
+                config::ACTION_CONFIRM_PROMPT
             },
             Style::default().fg(config::MUTED_COLOR),
         )));
@@ -172,7 +176,7 @@ fn draw_selected_action(
             if app.executing {
                 "Running action… wait for the result"
             } else {
-                "Press y or click Run to execute"
+                config::ACTION_CONFIRM_PROMPT
             },
             Style::default().fg(config::MUTED_COLOR),
         )));
@@ -201,7 +205,7 @@ fn draw_selected_action(
     } else if dialog.editing {
         Some("Accept")
     } else if dialog.confirming {
-        Some("Run")
+        Some("Y")
     } else {
         None
     };
@@ -274,6 +278,11 @@ fn draw_controls(
     let start = content.x.saturating_add(2);
     let primary_text = primary.map(|label| format!("[ {label} ]"));
     let primary_width = primary_text.as_ref().map_or(0, |label| label.len() as u16);
+    let cancel_text = if primary == Some("Y") {
+        "[ N ]"
+    } else {
+        "[ Cancel ]"
+    };
     let cancel_x = if primary.is_some() {
         start.saturating_add(primary_width).saturating_add(3)
     } else {
@@ -284,12 +293,12 @@ fn draw_controls(
             Span::raw("  "),
             Span::styled(primary_text, Style::default().fg(config::KEY_COLOR)),
             Span::raw("   "),
-            Span::styled("[ Cancel ]", Style::default().fg(config::KEY_COLOR)),
+            Span::styled(cancel_text, Style::default().fg(config::KEY_COLOR)),
         ])
     } else {
         Line::from(vec![
             Span::raw("  "),
-            Span::styled("[ Cancel ]", Style::default().fg(config::KEY_COLOR)),
+            Span::styled(cancel_text, Style::default().fg(config::KEY_COLOR)),
         ])
     };
     frame.render_widget(
@@ -312,7 +321,7 @@ fn draw_controls(
         Rect::new(
             cancel_x,
             y,
-            10.min(content.right().saturating_sub(cancel_x)),
+            (cancel_text.len() as u16).min(content.right().saturating_sub(cancel_x)),
             1,
         ),
         MouseTarget::CancelAction,
