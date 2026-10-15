@@ -157,7 +157,7 @@ fn draw_services(frame: &mut Frame, area: Rect, app: &App, hit_map: &mut HitMap)
     }
 
     spans.push(Span::styled(
-        "  [/] switch service",
+        "  [ or ] switch service",
         Style::default().fg(theme.muted),
     ));
     let account = match &app.account {

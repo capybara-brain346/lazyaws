@@ -37,6 +37,9 @@ fn renders_service_tabs_and_five_rounded_side_panels_for_each_service() {
         }
         assert!(text.contains("Details"));
         assert!(text.contains("Command log"));
+        assert!(text.contains("0–6 panes"));
+        assert!(text.contains("[ or ] switch service"));
+        assert!(!text.contains("Tab panels"));
         assert!(text.contains('╭'));
         let compact_pane_row = text.lines().position(|line| line.contains("[5]")).unwrap();
         let log_row = text
@@ -132,7 +135,7 @@ fn help_overlay_and_small_terminal_show_useful_text() {
     app.help = true;
     let (help, _) = render(&app, &Config::default(), 110, 36);
     assert!(help.contains("Keybindings"));
-    assert!(help.contains("2–5 lists"));
+    assert!(help.contains("0–6 focus panes"));
     assert!(help.contains("PgUp/PgDn"));
 
     app.help = false;

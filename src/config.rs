@@ -99,7 +99,7 @@ impl Default for Config {
 }
 
 pub const USAGE: &str = "lazyaws [--demo] [--profile NAME] [--region REGION] [--aws-bin PATH]\n\n\
-Keys: [ and ] services, Tab panels, j/k rows, Enter details, / filter, r refresh, t themes, ? help, q quit.\n\
+Keys: [ or ] services, Tab panels, 0–6 panes, j/k rows, Enter details, / filter, r refresh, t themes, ? help, q quit.\n\
 AWS mode uses your AWS CLI credentials for read commands and actions after confirmation.\n\
 Press a to choose an action. Use the mouse to select services, panels, and rows.\n\
 --demo needs no credentials.\n\

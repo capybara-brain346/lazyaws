@@ -96,11 +96,9 @@ File transfers ask for a path. A bucket upload uses the local file name as the o
 
 | Key or action | Result |
 | --- | --- |
-| `[` / `]`, Shift+Left / Shift+Right | Change service |
-| Tab / Shift+Tab, `h` / `l` | Change pane |
-| `1` to `5` | Focus a left pane |
-| `0`, Enter | Focus the detail pane |
-| `6` | Focus the command log |
+| `[` or `]`, Shift+Left or Shift+Right | Change service |
+| `0` to `6` | Focus a pane |
+| Tab / Shift+Tab, `h` / `l` | Cycle through panes |
 | `j` / `k`, Up / Down | Select a row |
 | `/` | Filter the current list |
 | Enter / Esc in the filter | Accept / clear the filter |
