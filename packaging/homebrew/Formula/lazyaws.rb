@@ -1,7 +1,6 @@
 class Lazyaws < Formula
   desc "Lazygit-style terminal interface for AWS"
   homepage "https://lazyaws.xyz"
-  version "0.1.0"
   license "MIT"
 
   on_macos do

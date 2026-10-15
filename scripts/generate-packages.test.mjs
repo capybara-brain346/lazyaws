@@ -42,7 +42,7 @@ test("generates Homebrew and AUR metadata from all four checksums", async () => 
     const pkgbuild = await readFile(path.join(output, "aur", config.aurPackage, "PKGBUILD"), "utf8");
     const srcinfo = await readFile(path.join(output, "aur", config.aurPackage, ".SRCINFO"), "utf8");
 
-    assert.match(formula, new RegExp(`version "${version}"`));
+    assert.doesNotMatch(formula, /^\s*version\s/m);
     assert.match(formula, new RegExp(`homepage "${config.homepage}"`));
     assert.doesNotMatch(formula, /^  desc "A /m);
     assert.match(formula, /on_macos do/);

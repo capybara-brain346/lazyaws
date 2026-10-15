@@ -105,7 +105,6 @@ function renderFormula(config, metadata, targets, checksums) {
   return `class Lazyaws < Formula
   desc ${JSON.stringify(description)}
   homepage ${JSON.stringify(config.homepage)}
-  version "${metadata.version}"
   license "${metadata.license}"
 
 ${platformBlocks}
