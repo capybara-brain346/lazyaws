@@ -6,12 +6,12 @@ use ratatui::{
     widgets::{Block, BorderType, Borders, Clear, Paragraph, Wrap},
 };
 
-use crate::config::{self, HELP_HEIGHT, HELP_WIDTH};
+use crate::config::{self, ACTIONS_KEY_LABEL, ACTIONS_KEY_TEXT, HELP_HEIGHT, HELP_WIDTH};
 
 pub(super) fn draw_key_bar(frame: &mut Frame, area: Rect) {
     let line = Line::from(vec![
-        Span::styled(" a ", Style::default().fg(config::KEY_COLOR)),
-        Span::raw("actions  "),
+        Span::styled(ACTIONS_KEY_LABEL, Style::default().fg(config::KEY_COLOR)),
+        Span::raw(ACTIONS_KEY_TEXT),
         Span::styled(" 1 ", Style::default().fg(config::KEY_COLOR)),
         Span::raw("status  "),
         Span::styled("2–5", Style::default().fg(config::KEY_COLOR)),

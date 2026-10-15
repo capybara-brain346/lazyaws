@@ -31,7 +31,7 @@ fn object_prefix_and_settings_actions_keep_the_bucket_region_and_target() {
         );
         let json_action = actions
             .iter()
-            .find(|action| action.parameter == Some("JSON fields"));
+            .find(|action| action.parameter == Some(Parameter::JsonFields));
         if let Some(action) = json_action {
             assert!(action.args(r#"{"Bucket":"other"}"#).is_err());
         }

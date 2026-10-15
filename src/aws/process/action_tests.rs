@@ -1,6 +1,6 @@
 use std::fs;
 
-use crate::operations::Operation;
+use crate::operations::{InvokeMode, Operation, Parameter};
 
 use super::*;
 
@@ -19,6 +19,7 @@ fn execute_accepts_empty_success_output() {
         target: "vol-1".into(),
         warning: "Deletes the volume.",
         parameter: None,
+        paginated: false,
     };
     let mut logs = Vec::new();
 
@@ -44,6 +45,7 @@ fn action_logs_do_not_expose_json_input_values() {
         target: "prod".into(),
         warning: "Starts a task.",
         parameter: None,
+        paginated: false,
     };
     let mut logs = Vec::new();
     fake.client().execute(&operation, "", &mut logs).unwrap();
@@ -88,6 +90,7 @@ fn ecr_batch_delete_reports_per_image_failures() {
         target: "latest".into(),
         warning: "Removes this image tag.",
         parameter: None,
+        paginated: false,
     };
     let mut logs = Vec::new();
 
@@ -114,6 +117,7 @@ fn ecr_batch_delete_rejects_malformed_failures() {
         target: "latest".into(),
         warning: "Removes this image tag.",
         parameter: None,
+        paginated: false,
     };
 
     let error = fake
@@ -152,6 +156,7 @@ fn new_task_and_manifest_actions_report_api_failures_after_cli_success() {
             target: "target".into(),
             warning: "warning",
             parameter: None,
+            paginated: false,
         };
         let mut logs = Vec::new();
         let error = fake
@@ -180,8 +185,13 @@ fn download_stages_output_and_never_overwrites_a_local_file() {
         region: Some("ap-south-1".into()),
         target: "folder/object.txt".into(),
         warning: "Downloads this object.",
-        parameter: Some("Download file path"),
+        parameter: Some(Parameter::DownloadFilePath),
+        paginated: false,
     };
+    assert_eq!(
+        crate::aws::execute_timeout(&operation),
+        crate::config::TRANSFER_TIMEOUT
+    );
     let mut logs = Vec::new();
 
     fake.client()
@@ -222,7 +232,8 @@ fn failed_download_removes_partial_staging_output() {
         region: Some("ap-south-1".into()),
         target: "object.txt".into(),
         warning: "Downloads this object.",
-        parameter: Some("Download file path"),
+        parameter: Some(Parameter::DownloadFilePath),
+        paginated: false,
     };
     let error = fake
         .client()
@@ -256,7 +267,8 @@ fn lambda_invoke_merges_payload_and_reports_function_errors() {
         region: None,
         target: "api".into(),
         warning: "Invokes the function.",
-        parameter: Some("Invoke payload"),
+        parameter: Some(Parameter::InvokePayload(InvokeMode::Sync)),
+        paginated: false,
     };
     let mut logs = Vec::new();
     let response = fake
@@ -296,7 +308,8 @@ fn lambda_invoke_with_log_tail_decodes_logs() {
         region: None,
         target: "api".into(),
         warning: "Invokes the function.",
-        parameter: Some("Invoke payload with logs"),
+        parameter: Some(Parameter::InvokePayload(InvokeMode::SyncWithLogs)),
+        paginated: false,
     };
     let response = fake
         .client()

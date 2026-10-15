@@ -2,7 +2,7 @@ use serde_json::Value;
 
 use crate::model::{Resource, Service, Snapshot};
 
-use super::Operation;
+use super::{InvokeMode, Operation, Parameter};
 
 mod ec2;
 mod ecr;
@@ -36,7 +36,7 @@ pub(super) fn operation(
     input: Value,
     target: &str,
     warning: &'static str,
-    parameter: Option<&'static str>,
+    parameter: Option<Parameter>,
 ) -> Operation {
     Operation {
         label,
@@ -47,6 +47,7 @@ pub(super) fn operation(
         target: target.into(),
         warning,
         parameter,
+        paginated: false,
     }
 }
 

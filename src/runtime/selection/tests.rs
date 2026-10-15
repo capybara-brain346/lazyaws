@@ -37,12 +37,14 @@ fn click_runs_on_release_but_drag_over_a_confirmation_button_only_copies() {
             target: "i-test".into(),
             warning: "Stops the instance.",
             parameter: None,
+            paginated: false,
         }],
         selected: 0,
         confirming: true,
         editing: false,
         input: String::new(),
         error: None,
+        preview: Ok(Vec::new()),
     });
     let mut selection = TextSelection::default();
     let down = mouse(MouseEventKind::Down(MouseButton::Left), 0, 0);

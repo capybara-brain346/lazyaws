@@ -95,7 +95,7 @@ fn volume_resize_is_pinned_and_detach_uses_only_the_selected_instances_attachmen
     let actions = available(1, &volume, &primary);
     let resize = action(&actions, "modify-volume");
     assert_eq!(resize.input, json!({"VolumeId":"vol-data"}));
-    assert_eq!(resize.parameter, Some("JSON fields"));
+    assert_eq!(resize.parameter, Some(Parameter::JsonFields));
 
     let detach = action(&actions, "detach-volume");
     assert_eq!(
@@ -146,7 +146,7 @@ fn security_group_rules_and_tag_edits_keep_their_targets_fixed() {
     ] {
         let operation = action(&group_actions, name);
         assert_eq!(operation.input, json!({"GroupId":"sg-123"}));
-        assert_eq!(operation.parameter, Some("JSON fields"));
+        assert_eq!(operation.parameter, Some(Parameter::JsonFields));
     }
 
     let primary = resource("i-123", json!({}));
@@ -157,12 +157,12 @@ fn security_group_rules_and_tag_edits_keep_their_targets_fixed() {
         update.input,
         json!({"Resources":["i-123"],"Tags":[{"Key":"Environment"}]})
     );
-    assert_eq!(update.parameter, Some("Tag value"));
+    assert_eq!(update.parameter, Some(Parameter::TagValue));
 
     let add = tag_actions
         .iter()
         .find(|operation| operation.label == "Add or update instance tags")
         .unwrap();
     assert_eq!(add.input, json!({"Resources":["i-123"]}));
-    assert_eq!(add.parameter, Some("JSON fields"));
+    assert_eq!(add.parameter, Some(Parameter::JsonFields));
 }

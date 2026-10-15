@@ -30,7 +30,7 @@ pub(super) fn available(panel: usize, resource: &Resource, primary: &Resource) -
                     json!({"cluster":id}),
                     id,
                     "Enter a settings list. Container Insights accepts enabled, enhanced, or disabled; charges may apply.",
-                    Some("JSON fields"),
+                    Some(Parameter::JsonFields),
                 ));
             }
 
@@ -43,7 +43,8 @@ pub(super) fn available(panel: usize, resource: &Resource, primary: &Resource) -
                     id,
                     "Lists service ARNs in this cluster.",
                     None,
-                ),
+                )
+                .paginated(),
                 operation(
                     "List tasks",
                     "ecs",
@@ -52,7 +53,8 @@ pub(super) fn available(panel: usize, resource: &Resource, primary: &Resource) -
                     id,
                     "Lists RUNNING tasks by default; recently stopped tasks may also appear.",
                     None,
-                ),
+                )
+                .paginated(),
             ]);
 
             actions
@@ -60,6 +62,11 @@ pub(super) fn available(panel: usize, resource: &Resource, primary: &Resource) -
         1 => {
             let name = string(&resource.detail, &["serviceName"]).unwrap_or(id);
             let cluster = primary.id.as_str();
+            let mut count_input = json!({"cluster":cluster,"service":name});
+            if let Some(count) = resource.detail.get("desiredCount").and_then(Value::as_u64) {
+                count_input["desiredCount"] = json!(count);
+            }
+
             let mut actions = vec![
                 operation(
                     "Start new deployment",
@@ -74,10 +81,10 @@ pub(super) fn available(panel: usize, resource: &Resource, primary: &Resource) -
                     "Set desired task count",
                     "ecs",
                     "update-service",
-                    json!({"cluster":cluster,"service":name}),
+                    count_input,
                     id,
                     "Changes the service task count. ECS can start or stop tasks.",
-                    Some("Desired task count"),
+                    Some(Parameter::DesiredTaskCount),
                 ),
                 operation(
                     "Delete service",
@@ -101,7 +108,7 @@ pub(super) fn available(panel: usize, resource: &Resource, primary: &Resource) -
                         json!({"cluster":cluster,"service":name}),
                         id,
                         "Starts a deployment with the supplied task definition revision. This does not roll back an ongoing deployment.",
-                        Some("Task definition revision"),
+                        Some(Parameter::TaskDefinitionRevision),
                     ),
                     operation(
                         "List service deployments",
@@ -119,7 +126,7 @@ pub(super) fn available(panel: usize, resource: &Resource, primary: &Resource) -
                         json!({"stopType":"ROLLBACK"}),
                         id,
                         "Rolls an ongoing deployment back to its previous service revision. Get the deployment ARN from List service deployments.",
-                        Some("Service deployment ARN"),
+                        Some(Parameter::ServiceDeploymentArn),
                     ),
                 ]);
             }
@@ -154,7 +161,7 @@ pub(super) fn available(panel: usize, resource: &Resource, primary: &Resource) -
                     input,
                     id,
                     "Starts a standalone task and may add compute charges. For awsvpc tasks, enter networkConfiguration with subnets; security groups are optional.",
-                    Some("JSON fields"),
+                    Some(Parameter::JsonFields),
                 ));
             }
 
@@ -195,7 +202,7 @@ pub(super) fn available(panel: usize, resource: &Resource, primary: &Resource) -
                         json!({"cluster":primary.id,"taskDefinition":id}),
                         id,
                         "Starts a standalone task and may add compute charges. Set launchType or capacityProviderStrategy if needed; awsvpc tasks need networkConfiguration with subnets. Security groups are optional.",
-                        Some("JSON fields"),
+                        Some(Parameter::JsonFields),
                     ),
                 ]);
             }
@@ -209,7 +216,7 @@ pub(super) fn available(panel: usize, resource: &Resource, primary: &Resource) -
                     id,
                     "Lists active revisions by family prefix. The prefix can also match similarly named families.",
                     None,
-                ));
+                ).paginated());
             }
 
             actions.push(operation(

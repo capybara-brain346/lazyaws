@@ -6,13 +6,12 @@ use std::{
 
 use serde_json::Value;
 
-use crate::config::DOWNLOAD_STAGE_ATTEMPTS;
+use crate::config::{DOWNLOAD_STAGE_ATTEMPTS, ERROR_EXCERPT_CHARS, INVOKE_RESPONSE_LIMIT_BYTES};
 
 static NEXT_DOWNLOAD: AtomicU64 = AtomicU64::new(0);
 static NEXT_INVOKE: AtomicU64 = AtomicU64::new(0);
 
 pub(crate) const INVOKE_OUTPUT_PLACEHOLDER: &str = "<invoke-output-file>";
-const INVOKE_PAYLOAD_LIMIT_BYTES: u64 = 8 * 1024 * 1024;
 
 pub(super) struct DownloadStage {
     directory: PathBuf,
@@ -158,10 +157,9 @@ impl InvokeOutput {
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(Value::Null),
             Err(error) => return Err(format!("cannot read invoke output: {error}")),
         };
-        if bytes.len() as u64 > INVOKE_PAYLOAD_LIMIT_BYTES {
+        if bytes.len() as u64 > INVOKE_RESPONSE_LIMIT_BYTES {
             return Err(format!(
-                "Lambda payload exceeded {} bytes",
-                INVOKE_PAYLOAD_LIMIT_BYTES
+                "Lambda payload exceeded {INVOKE_RESPONSE_LIMIT_BYTES} bytes"
             ));
         }
         if bytes.is_empty() {
@@ -188,8 +186,8 @@ fn payload_excerpt(payload: &Value) -> String {
         Value::String(text) => text.clone(),
         _ => serde_json::to_string(payload).unwrap_or_else(|_| "unreadable payload".into()),
     };
-    let mut excerpt: String = text.chars().take(1000).collect();
-    if text.chars().count() > 1000 {
+    let mut excerpt: String = text.chars().take(ERROR_EXCERPT_CHARS).collect();
+    if excerpt.len() < text.len() {
         excerpt.push_str("…[truncated]");
     }
     excerpt

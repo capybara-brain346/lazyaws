@@ -8,8 +8,8 @@ use crate::{
 use super::{
     FetchContext,
     common::{
-        array, optional_array, optional_string, panel_error, resource, selected_id, sort_and_limit,
-        string,
+        array, optional_array, optional_string, panel_error, resource, selected_id, set_panel,
+        sort_and_limit, string,
     },
 };
 
@@ -32,11 +32,8 @@ pub(super) fn fetch(cli: &FetchContext<'_>, selected: Option<&str>) -> Snapshot 
         }
     };
 
-    match buckets(&response) {
-        Ok(items) => snapshot.panels[0].items = items,
-        Err(error) => panel_error(&mut snapshot, 0, error),
-    }
-    sort_and_limit(&mut snapshot.panels[0], &mut snapshot.logs, "S3 buckets");
+    let result = buckets(&response);
+    set_panel(&mut snapshot, 0, result, "S3 buckets");
     let Some(bucket_name) = selected_id(&snapshot.panels[0].items, selected) else {
         return snapshot;
     };
@@ -48,24 +45,12 @@ pub(super) fn fetch(cli: &FetchContext<'_>, selected: Option<&str>) -> Snapshot 
         .unwrap_or(Value::Null);
 
     let region = match bucket_region(&bucket) {
-        Ok(Some(region)) => Some(region),
-        Ok(None) => match get_bucket_location(cli, &mut snapshot, &bucket_name) {
-            Ok(region) => Some(region),
-            Err(error) => {
-                panel_error(&mut snapshot, 3, &error);
-                panel_error(
-                    &mut snapshot,
-                    1,
-                    format!("cannot load objects without the bucket Region: {error}"),
-                );
-                panel_error(
-                    &mut snapshot,
-                    2,
-                    format!("cannot load prefixes without the bucket Region: {error}"),
-                );
-                None
-            }
-        },
+        Ok(Some(region)) => Ok(region),
+        Ok(None) => get_bucket_location(cli, &mut snapshot, &bucket_name),
+        Err(error) => Err(error),
+    };
+    let region = match region {
+        Ok(region) => Some(region),
         Err(error) => {
             panel_error(&mut snapshot, 3, &error);
             panel_error(

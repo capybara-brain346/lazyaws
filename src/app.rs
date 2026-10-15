@@ -1,21 +1,23 @@
-use std::{collections::VecDeque, time::Instant};
+use std::{collections::VecDeque, mem, time::Instant};
 
 use crate::{
     config::LOG_CAPACITY,
-    model::{Resource, Service, Snapshot},
+    model::{PANEL_COUNT, Panel, Resource, Service, Snapshot},
     operations::AccountContext,
 };
 
 mod actions;
+mod focus;
 mod input;
 
 pub use actions::ActionDialog;
+pub use focus::Focus;
 pub use input::Action;
 
 #[derive(Clone, Debug, Default)]
 struct ServiceState {
-    selected: [usize; 4],
-    selected_ids: [Option<String>; 4],
+    selected: [usize; PANEL_COUNT],
+    selected_ids: [Option<String>; PANEL_COUNT],
     filter: String,
     filter_panel: usize,
 }
@@ -23,8 +25,8 @@ struct ServiceState {
 pub struct App {
     pub service: Service,
     pub snapshot: Snapshot,
-    pub focus: usize,
-    pub selected: [usize; 4],
+    pub focus: Focus,
+    pub selected: [usize; PANEL_COUNT],
     pub filter: String,
     pub filtering: bool,
     pub help: bool,
@@ -37,7 +39,7 @@ pub struct App {
     pub executing: bool,
     pub account: Option<Result<AccountContext, String>>,
     pub operation_output: Option<String>,
-    service_states: [ServiceState; 5],
+    service_states: [ServiceState; Service::ALL.len()],
     detail_panel: usize,
     filter_panel: usize,
 }
@@ -54,8 +56,8 @@ impl App {
         Self {
             service,
             snapshot: Snapshot::empty(service),
-            focus: 1,
-            selected: [0; 4],
+            focus: Focus::List(0),
+            selected: [0; PANEL_COUNT],
             filter: String::new(),
             filtering: false,
             help: false,
@@ -81,21 +83,26 @@ impl App {
 
         let old_state = self.current_service_state();
         let old_primary = self.selected_primary().map(str::to_owned);
-        let old_selections = old_state.selected;
-        let old_ids = old_state.selected_ids;
-        let primary_failed =
-            snapshot.panels[0].error.is_some() && snapshot.panels[0].items.is_empty();
-        let mut primary = snapshot.panels[0].clone();
+        let Snapshot {
+            service,
+            panels: mut incoming,
+            logs,
+        } = snapshot;
+        let mut previous = mem::replace(&mut self.snapshot, Snapshot::empty(service)).panels;
+
+        let primary_failed = incoming[0].error.is_some() && incoming[0].items.is_empty();
         if primary_failed {
-            primary = self.snapshot.panels[0].clone();
-            primary.error.clone_from(&snapshot.panels[0].error);
-            primary.title.clone_from(&snapshot.panels[0].title);
+            let failed = mem::take(&mut incoming[0]);
+            incoming[0] = Panel {
+                items: mem::take(&mut previous[0].items),
+                ..failed
+            };
         }
-        self.selected[0] = old_ids[0]
+        self.selected[0] = old_state.selected_ids[0]
             .as_ref()
-            .and_then(|id| primary.items.iter().position(|item| item.id == *id))
+            .and_then(|id| incoming[0].items.iter().position(|item| item.id == *id))
             .unwrap_or(0);
-        let new_primary = primary
+        let new_primary = incoming[0]
             .items
             .get(self.selected[0])
             .map(|resource| resource.id.as_str());
@@ -103,49 +110,45 @@ impl App {
             .as_deref()
             .is_some_and(|old| Some(old) != new_primary);
 
-        let mut updated = Snapshot::empty(snapshot.service);
-        updated.panels[0] = primary;
-        for index in 1..4 {
-            let incoming = &snapshot.panels[index];
-            updated.panels[index] = if primary_failed {
-                let mut stale = self.snapshot.panels[index].clone();
-                stale.error.clone_from(&snapshot.panels[0].error);
-                stale
-            } else if incoming.error.is_some() && incoming.items.is_empty() && !primary_changed {
-                let mut stale = self.snapshot.panels[index].clone();
-                stale.title.clone_from(&incoming.title);
-                stale.error.clone_from(&incoming.error);
-                stale
-            } else {
-                incoming.clone()
-            };
-            self.selected[index] = old_ids[index]
+        for index in 1..PANEL_COUNT {
+            if primary_failed {
+                let mut stale = mem::take(&mut previous[index]);
+                stale.error.clone_from(&incoming[0].error);
+                incoming[index] = stale;
+            } else if incoming[index].error.is_some()
+                && incoming[index].items.is_empty()
+                && !primary_changed
+            {
+                let failed = mem::take(&mut incoming[index]);
+                incoming[index] = Panel {
+                    items: mem::take(&mut previous[index].items),
+                    ..failed
+                };
+            }
+            self.selected[index] = old_state.selected_ids[index]
                 .as_ref()
-                .and_then(|id| {
-                    updated.panels[index]
-                        .items
-                        .iter()
-                        .position(|item| item.id == *id)
-                })
+                .and_then(|id| incoming[index].items.iter().position(|item| item.id == *id))
                 .unwrap_or_else(|| {
-                    old_selections[index].min(updated.panels[index].items.len().saturating_sub(1))
+                    old_state.selected[index].min(incoming[index].items.len().saturating_sub(1))
                 });
         }
-        updated.logs = snapshot.logs;
 
         if primary_changed {
             self.selected[1..].fill(0);
             self.clear_related_selection_state();
         }
 
-        self.snapshot = updated;
+        self.snapshot = Snapshot {
+            service,
+            panels: incoming,
+            logs: Vec::new(),
+        };
         let new_primary = self.selected_primary().map(str::to_owned);
         if self.snapshot.panels[0].error.is_none() && self.snapshot.panels[0].items.is_empty() {
             self.service_states[self.service.index()].selected_ids[0] = None;
         } else if let Some(id) = new_primary {
             self.service_states[self.service.index()].selected_ids[0] = Some(id);
         }
-        let logs = self.snapshot.logs.clone();
         self.append_logs(logs);
         self.error = self.snapshot.panels.iter().find_map(|panel| {
             panel
@@ -169,41 +172,37 @@ impl App {
     }
 
     pub fn selected_resource(&self) -> Option<&Resource> {
-        let panel = if self.focus == 5 {
-            self.detail_panel
-        } else if (1..=4).contains(&self.focus) {
-            self.focus - 1
-        } else {
-            return None;
-        };
+        let panel = self.action_panel()?;
         self.snapshot.panels[panel].items.get(self.selected[panel])
     }
 
+    fn action_panel(&self) -> Option<usize> {
+        match self.focus {
+            Focus::List(panel) => Some(panel),
+            Focus::Detail => Some(self.detail_panel),
+            Focus::Status | Focus::Log => None,
+        }
+    }
+
     pub fn visible_indices(&self, panel: usize) -> Vec<usize> {
-        let Some(data) = panel
-            .checked_sub(1)
-            .and_then(|index| self.snapshot.panels.get(index))
-        else {
+        let Some(data) = self.snapshot.panels.get(panel) else {
             return Vec::new();
         };
-        if self.filter.is_empty() || panel - 1 != self.filter_panel {
+        if self.filter.is_empty() || panel != self.filter_panel {
             return (0..data.items.len()).collect();
         }
 
         let needle = self.filter.to_lowercase();
+        let matches = |text: &str| text.to_lowercase().contains(&needle);
         data.items
             .iter()
             .enumerate()
             .filter_map(|(index, item)| {
-                let detail = item.detail.to_string();
-                [
-                    item.id.as_str(),
-                    item.label.as_str(),
-                    item.summary.as_str(),
-                    detail.as_str(),
-                ]
-                .iter()
-                .any(|text| text.to_lowercase().contains(&needle))
+                // Serialize the JSON detail only when the short fields do not match.
+                (matches(&item.id)
+                    || matches(&item.label)
+                    || matches(&item.summary)
+                    || matches(&item.detail.to_string()))
                 .then_some(index)
             })
             .collect()
@@ -244,7 +243,7 @@ impl App {
         state.selected = self.selected;
         state.filter.clone_from(&self.filter);
         state.filter_panel = self.filter_panel;
-        for index in 0..4 {
+        for index in 0..PANEL_COUNT {
             state.selected_ids[index] = self.snapshot.panels[index]
                 .items
                 .get(self.selected[index])
@@ -259,7 +258,7 @@ impl App {
         self.service_states[self.service.index()] = state;
     }
 
-    fn append_logs(&mut self, lines: impl IntoIterator<Item = String>) {
+    pub fn append_logs(&mut self, lines: impl IntoIterator<Item = String>) {
         self.logs.extend(lines);
         while self.logs.len() > LOG_CAPACITY {
             self.logs.pop_front();

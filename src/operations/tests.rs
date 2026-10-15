@@ -2,8 +2,9 @@ use serde_json::json;
 
 use super::catalog::operation;
 use super::*;
+use crate::{demo, model::Service};
 
-fn action(parameter: &'static str, service: &'static str, name: &'static str) -> Operation {
+fn action(parameter: Parameter, service: &'static str, name: &'static str) -> Operation {
     operation(
         "Test action",
         service,
@@ -17,7 +18,7 @@ fn action(parameter: &'static str, service: &'static str, name: &'static str) ->
 
 #[test]
 fn json_fields_cannot_replace_captured_targets_or_options() {
-    let mut action = action("JSON fields", "ecr", "set-repository-policy");
+    let mut action = action(Parameter::JsonFields, "ecr", "set-repository-policy");
     action.input = json!({"repositoryName":"team/app","force":false});
     let args = action.args(r#"{"policyText":"{}"}"#).unwrap();
     let input: serde_json::Value = serde_json::from_str(&args[3]).unwrap();
@@ -38,18 +39,15 @@ fn json_fields_cannot_replace_captured_targets_or_options() {
 
 #[test]
 fn paginated_actions_use_the_configured_item_limit() {
-    let mut action = action("JSON fields", "s3api", "list-object-versions");
+    let mut action = action(Parameter::JsonFields, "s3api", "list-object-versions");
     action.parameter = None;
-    let args = action.args("").unwrap();
+    assert_eq!(action.args("").unwrap().len(), 4);
+
+    let args = action.paginated().args("").unwrap();
     assert_eq!(
         &args[4..],
         ["--max-items", &crate::config::MAX_ITEMS.to_string()]
     );
-    action.name = "head-object";
-    assert_eq!(action.args("").unwrap().len(), 4);
-    action.service = "ecs";
-    action.name = "list-service-deployments";
-    assert_eq!(action.args("").unwrap().len(), 4);
 }
 
 #[test]
@@ -58,7 +56,7 @@ fn tag_value_keeps_the_selected_key_and_supports_empty_values() {
         ("ec2", "create-tags", "Tags"),
         ("ecr", "tag-resource", "tags"),
     ] {
-        let mut action = action("Tag value", service, name);
+        let mut action = action(Parameter::TagValue, service, name);
         action.input = json!({field:[{"Key":"owner"}]});
         for value in ["", "new owner"] {
             let args = action.args(value).unwrap();
@@ -72,7 +70,7 @@ fn tag_value_keeps_the_selected_key_and_supports_empty_values() {
 
 #[test]
 fn task_definition_update_requires_an_explicit_positive_revision() {
-    let mut action = action("Task definition revision", "ecs", "update-service");
+    let mut action = action(Parameter::TaskDefinitionRevision, "ecs", "update-service");
     action.target = "arn:aws:ecs:eu-west-1:123456789012:service/prod/api".into();
     for value in [
         "api:12",
@@ -99,7 +97,11 @@ fn task_definition_update_requires_an_explicit_positive_revision() {
 
 #[test]
 fn rollback_arn_must_match_the_captured_service_account_and_region() {
-    let mut action = action("Service deployment ARN", "ecs", "stop-service-deployment");
+    let mut action = action(
+        Parameter::ServiceDeploymentArn,
+        "ecs",
+        "stop-service-deployment",
+    );
     action.target = "arn:aws:ecs:eu-west-1:123456789012:service/prod/api".into();
     action.input = json!({"stopType":"ROLLBACK"});
     let arn = "arn:aws:ecs:eu-west-1:123456789012:service-deployment/prod/api/deployment-1";
@@ -121,7 +123,7 @@ fn rollback_arn_must_match_the_captured_service_account_and_region() {
 
 #[test]
 fn download_provides_required_cli_flags_without_interpreting_object_keys_as_options() {
-    let mut action = action("Download file path", "s3api", "get-object");
+    let mut action = action(Parameter::DownloadFilePath, "s3api", "get-object");
     action.input = json!({"Bucket":"selected-bucket","Key":"--cli-input-json file://literal"});
     let destination = std::env::temp_dir().join(format!(
         "lazyaws-required-download-{}.txt",
@@ -139,17 +141,17 @@ fn download_provides_required_cli_flags_without_interpreting_object_keys_as_opti
 #[test]
 fn lambda_invoke_builds_flag_args_with_a_placeholder_outfile() {
     for (parameter, extra) in [
-        ("Invoke payload", Vec::new()),
+        (InvokeMode::Sync, Vec::new()),
         (
-            "Invoke payload with logs",
+            InvokeMode::SyncWithLogs,
             vec!["--log-type".to_string(), "Tail".to_string()],
         ),
         (
-            "Invoke payload async",
+            InvokeMode::Async,
             vec!["--invocation-type".to_string(), "Event".to_string()],
         ),
     ] {
-        let mut action = action(parameter, "lambda", "invoke");
+        let mut action = action(Parameter::InvokePayload(parameter), "lambda", "invoke");
         action.input = json!({"FunctionName": "api"});
         let args = action.args(r#"{"key":"value"}"#).unwrap();
         assert_eq!(args[0], "lambda");
@@ -158,14 +160,16 @@ fn lambda_invoke_builds_flag_args_with_a_placeholder_outfile() {
         assert_eq!(args[3], "api");
         assert_eq!(args[4], "--payload");
         assert_eq!(args[5], r#"{"key":"value"}"#);
+        assert_eq!(args[6..8], ["--cli-binary-format", "raw-in-base64-out"]);
         for (index, flag) in extra.iter().enumerate() {
-            assert_eq!(&args[6 + index], flag);
+            assert_eq!(&args[8 + index], flag);
         }
         assert_eq!(args.last().unwrap(), crate::aws::INVOKE_OUTPUT_PLACEHOLDER);
         assert!(!args.iter().any(|arg| arg == "--cli-input-json"));
 
         let empty = action.args("").unwrap();
         assert!(!empty.iter().any(|arg| arg == "--payload"));
+        assert!(!empty.iter().any(|arg| arg == "--cli-binary-format"));
         assert!(action.args("not json").is_err());
         action.input = json!({});
         assert!(action.args("{}").is_err());
@@ -174,7 +178,11 @@ fn lambda_invoke_builds_flag_args_with_a_placeholder_outfile() {
 
 #[test]
 fn lambda_concurrency_alias_and_tag_inputs_are_validated() {
-    let mut reserved = action("Reserved concurrency", "lambda", "put-function-concurrency");
+    let mut reserved = action(
+        Parameter::ReservedConcurrency,
+        "lambda",
+        "put-function-concurrency",
+    );
     reserved.input = json!({"FunctionName": "api"});
     let args = reserved.args("10").unwrap();
     let input: serde_json::Value = serde_json::from_str(&args[3]).unwrap();
@@ -182,7 +190,7 @@ fn lambda_concurrency_alias_and_tag_inputs_are_validated() {
     assert!(reserved.args("-1").is_err());
 
     let mut provisioned = action(
-        "Provisioned concurrency",
+        Parameter::ProvisionedConcurrency,
         "lambda",
         "put-provisioned-concurrency-config",
     );
@@ -192,7 +200,7 @@ fn lambda_concurrency_alias_and_tag_inputs_are_validated() {
     assert_eq!(input["ProvisionedConcurrentExecutions"], 5);
     assert!(provisioned.args("0").is_err());
 
-    let mut alias = action("Alias version", "lambda", "update-alias");
+    let mut alias = action(Parameter::AliasVersion, "lambda", "update-alias");
     alias.input = json!({"FunctionName": "api", "Name": "prod"});
     for valid in ["3", "$LATEST"] {
         let args = alias.args(valid).unwrap();
@@ -203,7 +211,7 @@ fn lambda_concurrency_alias_and_tag_inputs_are_validated() {
         assert!(alias.args(invalid).is_err(), "{invalid}");
     }
 
-    let mut tag = action("Lambda tag value", "lambda", "tag-resource");
+    let mut tag = action(Parameter::LambdaTagValue, "lambda", "tag-resource");
     tag.input = json!({"Resource": "arn:function", "Tags": {"Team": ""}});
     for value in ["", "platform"] {
         let args = tag.args(value).unwrap();
@@ -215,23 +223,25 @@ fn lambda_concurrency_alias_and_tag_inputs_are_validated() {
 }
 
 #[test]
-fn lambda_paginated_actions_use_the_configured_item_limit() {
-    for name in [
-        "list-functions",
-        "list-versions-by-function",
-        "list-aliases",
-        "list-event-source-mappings",
-        "list-function-event-invoke-configs",
-        "list-function-url-configs",
-        "list-provisioned-concurrency-configs",
-    ] {
-        let mut action = action("JSON fields", "lambda", name);
-        action.parameter = None;
-        let args = action.args("").unwrap();
-        assert_eq!(
-            &args[4..],
-            ["--max-items", &crate::config::MAX_ITEMS.to_string()],
-            "{name}"
-        );
+fn catalog_marks_only_list_actions_as_paginated() {
+    for service in Service::ALL {
+        let snapshot = demo::snapshot(service, None);
+        let primary = &snapshot.panels[0].items[0];
+        for (panel, data) in snapshot.panels.iter().enumerate() {
+            for resource in &data.items {
+                for operation in available(service, panel, resource, primary, &snapshot) {
+                    let expected = (operation.name.starts_with("list-")
+                        && operation.name != "list-service-deployments")
+                        || matches!(
+                            operation.name,
+                            "describe-images"
+                                | "describe-image-scan-findings"
+                                | "describe-instance-status"
+                                | "describe-volumes-modifications"
+                        );
+                    assert_eq!(operation.paginated, expected, "{}", operation.name);
+                }
+            }
+        }
     }
 }

@@ -1,4 +1,7 @@
-use crate::operations::{Operation, available};
+use crate::{
+    model::PANEL_COUNT,
+    operations::{Operation, available},
+};
 
 use super::{App, input::Action};
 
@@ -10,14 +13,36 @@ pub struct ActionDialog {
     pub editing: bool,
     pub input: String,
     pub error: Option<String>,
+    pub preview: Result<Vec<String>, String>,
+}
+
+impl ActionDialog {
+    pub fn new(operations: Vec<Operation>) -> Self {
+        Self {
+            operations,
+            selected: 0,
+            confirming: false,
+            editing: false,
+            input: String::new(),
+            error: None,
+            preview: Ok(Vec::new()),
+        }
+    }
+
+    // The dialog draws on every frame; arguments can touch the filesystem, so build them on change.
+    fn refresh_preview(&mut self) {
+        self.preview = self
+            .operations
+            .get(self.selected)
+            .ok_or_else(|| "No action is selected".to_string())
+            .and_then(|operation| operation.args(&self.input));
+    }
 }
 
 impl App {
     pub fn open_actions(&mut self) {
-        let panel = match self.focus {
-            1..=4 => self.focus - 1,
-            5 => self.detail_panel,
-            _ => return,
+        let Some(panel) = self.action_panel() else {
+            return;
         };
         self.open_actions_for(panel, self.selected[panel]);
     }
@@ -35,18 +60,10 @@ impl App {
 
         dialog.selected = index;
         dialog.error = None;
-        dialog.input = if operation.parameter == Some("Desired task count") {
-            operation
-                .input
-                .get("desiredCount")
-                .and_then(serde_json::Value::as_u64)
-                .map(|value| value.to_string())
-                .unwrap_or_default()
-        } else {
-            String::new()
-        };
+        dialog.input = operation.initial_input();
         dialog.editing = operation.parameter.is_some();
         dialog.confirming = !dialog.editing;
+        dialog.refresh_preview();
         Action::None
     }
 
@@ -97,9 +114,9 @@ impl App {
             || self.executing
             || self.actions.is_some()
             || !matches!(self.account.as_ref(), Some(Ok(_)))
-            || panel >= 4
+            || panel >= PANEL_COUNT
             || self.selected[panel] != index
-            || !self.visible_indices(panel + 1).contains(&index)
+            || !self.visible_indices(panel).contains(&index)
             || self.snapshot.panels[panel].error.is_some()
             || self.snapshot.panels[0].error.is_some()
         {
@@ -117,14 +134,7 @@ impl App {
             return;
         }
 
-        self.actions = Some(ActionDialog {
-            operations,
-            selected: 0,
-            confirming: false,
-            editing: false,
-            input: String::new(),
-            error: None,
-        });
+        self.actions = Some(ActionDialog::new(operations));
     }
 
     pub(super) fn handle_action_key(&mut self, key: crossterm::event::KeyEvent) -> Action {
@@ -148,24 +158,11 @@ impl App {
 
         if dialog.editing {
             match key.code {
-                KeyCode::Enter => {
-                    let result = dialog
-                        .operations
-                        .get(dialog.selected)
-                        .map(|operation| operation.args(&dialog.input));
-                    match result {
-                        Some(Ok(_)) => {
-                            dialog.editing = false;
-                            dialog.confirming = true;
-                            dialog.error = None;
-                        }
-                        Some(Err(error)) => dialog.error = Some(error),
-                        None => {}
-                    }
-                }
+                KeyCode::Enter => self.accept_action_input(),
                 KeyCode::Backspace => {
                     dialog.input.pop();
                     dialog.error = None;
+                    dialog.refresh_preview();
                 }
                 KeyCode::Char(character)
                     if !key
@@ -174,6 +171,7 @@ impl App {
                 {
                     dialog.input.push(character);
                     dialog.error = None;
+                    dialog.refresh_preview();
                 }
                 _ => {}
             }

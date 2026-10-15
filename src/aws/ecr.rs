@@ -5,8 +5,8 @@ use crate::model::{Resource, Snapshot};
 use super::{
     FetchContext,
     common::{
-        array, optional_array, optional_string, panel_error, resource, selected_id, sort_and_limit,
-        string, tag_resources,
+        array, optional_array, optional_string, panel_error, resource, selected_id, set_panel,
+        sort_and_limit, string, tag_resources,
     },
 };
 
@@ -24,15 +24,8 @@ pub(super) fn fetch(cli: &FetchContext<'_>, selected: Option<&str>) -> Snapshot 
         }
     };
 
-    match repositories(&response) {
-        Ok(items) => snapshot.panels[0].items = items,
-        Err(error) => panel_error(&mut snapshot, 0, error),
-    }
-    sort_and_limit(
-        &mut snapshot.panels[0],
-        &mut snapshot.logs,
-        "ECR repositories",
-    );
+    let result = repositories(&response);
+    set_panel(&mut snapshot, 0, result, "ECR repositories");
     let Some(repository_name) = selected_id(&snapshot.panels[0].items, selected) else {
         return snapshot;
     };
@@ -69,7 +62,7 @@ pub(super) fn fetch(cli: &FetchContext<'_>, selected: Option<&str>) -> Snapshot 
         "ECR image tags",
     );
 
-    match string(&repository, "repositoryArn")
+    let result = string(&repository, "repositoryArn")
         .map(str::to_string)
         .and_then(|arn| {
             let command = vec![
@@ -83,15 +76,8 @@ pub(super) fn fetch(cli: &FetchContext<'_>, selected: Option<&str>) -> Snapshot 
         .and_then(|response| {
             optional_array(&response, "tags")
                 .and_then(|tags| tag_resources(tags, "Key", "Value", ""))
-        }) {
-        Ok(items) => snapshot.panels[3].items = items,
-        Err(error) => panel_error(&mut snapshot, 3, error),
-    }
-    sort_and_limit(
-        &mut snapshot.panels[3],
-        &mut snapshot.logs,
-        "ECR repository tags",
-    );
+        });
+    set_panel(&mut snapshot, 3, result, "ECR repository tags");
     snapshot
 }
 

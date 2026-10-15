@@ -18,8 +18,8 @@ use serde_json::{Value, json};
 
 use crate::{
     app::{Action, App},
-    aws::AwsCli,
-    config::{Config, EVENT_WAIT, LOG_CAPACITY, POLL_INTERVAL},
+    aws::{self, AwsCli},
+    config::{Config, EVENT_WAIT, POLL_INTERVAL},
     demo,
     model::{Service, Snapshot},
     operations::{AccountContext, Operation},
@@ -80,6 +80,7 @@ impl Worker {
             .name("aws-cli".into())
             .spawn(move || {
                 let mut pending = None;
+                let mut identity = None;
                 while let Some(mut request) = pending.take().or_else(|| incoming.recv().ok()) {
                     if matches!(request.kind, RequestKind::Refresh { .. }) {
                         while let Ok(newer) = incoming.try_recv() {
@@ -105,9 +106,14 @@ impl Worker {
                             let client = AwsCli::new(config.clone(), Arc::clone(&request.cancel));
                             let account = if config.demo {
                                 Ok(demo_account())
+                            } else if let Some(account) = &identity {
+                                Ok(AccountContext::clone(account))
                             } else {
                                 client.identity(&mut logs)
                             };
+                            if let Ok(account) = &account {
+                                identity = Some(account.clone());
+                            }
                             let result = if config.demo {
                                 Ok(demo::snapshot(service, selected.as_deref()))
                             } else {
@@ -258,7 +264,7 @@ pub fn run(config: Config) -> io::Result<()> {
     let mut app = App::new();
     let mut generation = 0;
     worker.request(&mut app, &mut generation)?;
-    let mut last_request = Instant::now();
+    let mut last_refresh = Instant::now();
     let mut selection = TextSelection::default();
     let mut hit_map = ui::HitMap::default();
 
@@ -271,18 +277,19 @@ pub fn run(config: Config) -> io::Result<()> {
                     identity,
                     logs,
                 } => {
-                    append_logs(&mut app, logs);
+                    app.append_logs(logs);
                     if response_generation != generation {
                         continue;
                     }
                     app.account = Some(identity);
+                    last_refresh = Instant::now();
 
                     match result {
                         Ok(snapshot) => app.apply(*snapshot),
                         Err(error) => {
                             app.loading = false;
                             app.error = Some(error.clone());
-                            append_logs(&mut app, [error]);
+                            app.append_logs([error]);
                         }
                     }
                 }
@@ -297,10 +304,9 @@ pub fn run(config: Config) -> io::Result<()> {
                     app.executing = false;
                     app.actions = None;
                     app.operation_output = Some(output);
-                    append_logs(&mut app, logs);
-                    append_logs(&mut app, [operation_log(&operation, &result, demo)]);
+                    app.append_logs(logs);
+                    app.append_logs([operation_log(&operation, &result, demo)]);
                     worker.request(&mut app, &mut generation)?;
-                    last_request = Instant::now();
                 }
             }
         }
@@ -308,10 +314,9 @@ pub fn run(config: Config) -> io::Result<()> {
         if !app.loading
             && app.actions.is_none()
             && !app.executing
-            && last_request.elapsed() >= POLL_INTERVAL
+            && last_refresh.elapsed() >= POLL_INTERVAL
         {
             worker.request(&mut app, &mut generation)?;
-            last_request = Instant::now();
         }
 
         let screen = terminal.draw(|frame| {
@@ -337,10 +342,7 @@ pub fn run(config: Config) -> io::Result<()> {
             };
             match action {
                 Action::Quit => break,
-                Action::Refresh => {
-                    worker.request(&mut app, &mut generation)?;
-                    last_request = Instant::now();
-                }
+                Action::Refresh => worker.request(&mut app, &mut generation)?,
                 Action::Execute(operation, value) => {
                     worker.execute(operation, value, &mut generation)?;
                 }
@@ -348,7 +350,7 @@ pub fn run(config: Config) -> io::Result<()> {
                     if let Err(error) =
                         execute!(io::stdout(), CopyToClipboard::to_clipboard_from(text))
                     {
-                        append_logs(&mut app, [format!("Clipboard copy failed: {error}")]);
+                        app.append_logs([format!("Clipboard copy failed: {error}")]);
                     }
                 }
                 Action::None => {}
@@ -364,13 +366,6 @@ fn demo_account() -> AccountContext {
         account: "123456789012".into(),
         arn: "arn:aws:iam::123456789012:user/lazyaws-demo".into(),
         user_id: "AIDAEXAMPLEDEMO".into(),
-    }
-}
-
-fn append_logs(app: &mut App, lines: impl IntoIterator<Item = String>) {
-    app.logs.extend(lines);
-    while app.logs.len() > LOG_CAPACITY {
-        app.logs.pop_front();
     }
 }
 
@@ -391,7 +386,7 @@ fn operation_output(operation: &Operation, result: &Result<Value, String>, demo:
         }
         Err(error) => {
             lines.push(format!("{} failed: {error}", operation.label));
-            if error.to_ascii_lowercase().contains("timed out") {
+            if aws::outcome_unknown(error) {
                 lines.push("The outcome may be unknown. Refresh before retry.".into());
             }
         }
@@ -406,7 +401,7 @@ fn operation_log(operation: &Operation, result: &Result<Value, String>, demo: bo
             "{mode}{} completed for {}",
             operation.label, operation.target
         ),
-        Err(error) if error.to_ascii_lowercase().contains("timed out") => format!(
+        Err(error) if aws::outcome_unknown(error) => format!(
             "{mode}{} timed out for {}; outcome may be unknown, refresh before retry",
             operation.label, operation.target
         ),
@@ -495,6 +490,7 @@ mod tests {
             target: "i-example".into(),
             warning: "Stops the instance.",
             parameter: None,
+            paginated: false,
         };
         worker
             .execute(operation.clone(), String::new(), &mut generation)
@@ -520,5 +516,29 @@ mod tests {
                 Response::Refresh { .. } => {}
             }
         }
+    }
+
+    #[test]
+    fn cli_read_timeouts_warn_that_the_outcome_is_unknown() {
+        let operation = Operation {
+            label: "Stop instance",
+            service: "ec2",
+            name: "stop-instances",
+            input: json!({"InstanceIds":["i-example"]}),
+            region: None,
+            target: "i-example".into(),
+            warning: "Stops the instance.",
+            parameter: None,
+            paginated: false,
+        };
+        let read_timeout = Err(
+            "AWS CLI exited with exit status: 255: Read timeout on endpoint URL: \"https://ec2\""
+                .to_string(),
+        );
+        assert!(operation_log(&operation, &read_timeout, false).contains("outcome may be unknown"));
+        assert!(operation_output(&operation, &read_timeout, false).contains("may be unknown"));
+
+        let rejected = Err("AWS CLI exited with exit status: 254: AccessDenied".to_string());
+        assert!(!operation_log(&operation, &rejected, false).contains("unknown"));
     }
 }

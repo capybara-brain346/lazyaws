@@ -5,8 +5,8 @@ use crate::model::{Resource, Snapshot};
 use super::{
     FetchContext,
     common::{
-        array, optional_array, optional_string, panel_error, resource, selected_id, sort_and_limit,
-        string, tag_resources,
+        array, optional_array, optional_string, panel_error, resource, selected_id, set_panel,
+        sort_and_limit, string, tag_resources,
     },
 };
 
@@ -24,11 +24,8 @@ pub(super) fn fetch(cli: &FetchContext<'_>, selected: Option<&str>) -> Snapshot 
         }
     };
 
-    match instances(&response) {
-        Ok(items) => snapshot.panels[0].items = items,
-        Err(error) => panel_error(&mut snapshot, 0, error),
-    }
-    sort_and_limit(&mut snapshot.panels[0], &mut snapshot.logs, "EC2 instances");
+    let result = instances(&response);
+    set_panel(&mut snapshot, 0, result, "EC2 instances");
     let Some(instance_id) = selected_id(&snapshot.panels[0].items, selected) else {
         return snapshot;
     };
@@ -45,14 +42,10 @@ pub(super) fn fetch(cli: &FetchContext<'_>, selected: Option<&str>) -> Snapshot 
         "--filters".into(),
         format!("Name=attachment.instance-id,Values={instance_id}"),
     ];
-    match cli
+    let result = cli
         .invoke(&mut snapshot.logs, &volume_command, true)
-        .and_then(|response| volumes(&response))
-    {
-        Ok(items) => snapshot.panels[1].items = items,
-        Err(error) => panel_error(&mut snapshot, 1, error),
-    }
-    sort_and_limit(&mut snapshot.panels[1], &mut snapshot.logs, "EC2 volumes");
+        .and_then(|response| volumes(&response));
+    set_panel(&mut snapshot, 1, result, "EC2 volumes");
 
     match security_group_ids(&selected_instance) {
         Ok(group_ids) if !group_ids.is_empty() => {
@@ -79,13 +72,9 @@ pub(super) fn fetch(cli: &FetchContext<'_>, selected: Option<&str>) -> Snapshot 
         "EC2 security groups",
     );
 
-    match optional_array(&selected_instance, "Tags")
-        .and_then(|tags| tag_resources(tags, "Key", "Value", ""))
-    {
-        Ok(items) => snapshot.panels[3].items = items,
-        Err(error) => panel_error(&mut snapshot, 3, error),
-    }
-    sort_and_limit(&mut snapshot.panels[3], &mut snapshot.logs, "EC2 tags");
+    let result = optional_array(&selected_instance, "Tags")
+        .and_then(|tags| tag_resources(tags, "Key", "Value", ""));
+    set_panel(&mut snapshot, 3, result, "EC2 tags");
     snapshot
 }
 

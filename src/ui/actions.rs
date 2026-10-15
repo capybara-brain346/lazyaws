@@ -151,7 +151,7 @@ fn draw_selected_action(
     if let Some(parameter) = operation.parameter {
         lines.push(Line::from(vec![
             Span::styled(
-                format!("{parameter}: "),
+                format!("{}: ", parameter.label()),
                 Style::default().fg(config::TITLE_COLOR),
             ),
             Span::raw(safe_text(&dialog.input)),
@@ -182,13 +182,13 @@ fn draw_selected_action(
         )));
     }
 
-    match operation.args(&dialog.input) {
+    match &dialog.preview {
         Ok(args) => lines.push(Line::from(vec![
             Span::styled("Command: ", Style::default().fg(config::TITLE_COLOR)),
             Span::raw(command_preview(config, operation, args)),
         ])),
         Err(error) => lines.push(Line::from(Span::styled(
-            format!("Command: {}", safe_text(&error)),
+            format!("Command: {}", safe_text(error)),
             Style::default().fg(config::ERROR_COLOR),
         ))),
     }
@@ -328,7 +328,7 @@ fn draw_controls(
     ));
 }
 
-fn command_preview(config: &Config, operation: &Operation, args: Vec<String>) -> String {
+fn command_preview(config: &Config, operation: &Operation, args: &[String]) -> String {
     let mut command_args = Vec::new();
     if let Some(profile) = &config.profile {
         command_args.extend(["--profile".to_string(), profile.clone()]);
@@ -336,7 +336,7 @@ fn command_preview(config: &Config, operation: &Operation, args: Vec<String>) ->
     if let Some(region) = operation.region.as_deref().or(config.region.as_deref()) {
         command_args.extend(["--region".to_string(), region.to_string()]);
     }
-    command_args.extend(args);
+    command_args.extend_from_slice(args);
     std::iter::once(shell_quote(&config.aws_bin))
         .chain(command_args.iter().map(|arg| shell_quote(arg)))
         .collect::<Vec<_>>()

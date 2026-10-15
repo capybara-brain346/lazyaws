@@ -55,7 +55,7 @@ pub(super) fn available(
                     json!({"Bucket":bucket}),
                     bucket,
                     "Uploads one file up to 5 GB. It replaces an object with the same key.",
-                    Some("Upload file path"),
+                    Some(Parameter::UploadFilePath),
                     &region,
                 ),
             ]);
@@ -70,7 +70,7 @@ pub(super) fn available(
                     json!({"Bucket":bucket,"Key":resource.id}),
                     &resource.id,
                     "Downloads this object to a new local file.",
-                    Some("Download file path"),
+                    Some(Parameter::DownloadFilePath),
                     &region,
                 ),
                 s3_operation(
@@ -79,7 +79,7 @@ pub(super) fn available(
                     json!({"Bucket":bucket,"Key":resource.id}),
                     &resource.id,
                     "Replaces this object with one local file up to 5 GB.",
-                    Some("Upload file path"),
+                    Some(Parameter::UploadFilePath),
                     &region,
                 ),
                 s3_operation(
@@ -117,7 +117,7 @@ pub(super) fn available(
                     json!({"Bucket":bucket,"Key":resource.id}),
                     &resource.id,
                     "Replaces all tags for the current object version. Enter Tagging with TagSet.",
-                    Some("JSON fields"),
+                    Some(Parameter::JsonFields),
                     &region,
                 ),
                 s3_operation(
@@ -137,7 +137,8 @@ pub(super) fn available(
                     "Lists versions and delete markers. Other keys with this prefix can appear.",
                     None,
                     &region,
-                ),
+                )
+                .paginated(),
             ]);
             actions
         }
@@ -157,6 +158,7 @@ pub(super) fn available(
                 None,
                 &region,
             )
+            .paginated()
         })
         .collect(),
         3 => {
@@ -218,7 +220,7 @@ pub(super) fn available(
                     json!({"Bucket":bucket}),
                     bucket,
                     warning,
-                    Some("JSON fields"),
+                    Some(Parameter::JsonFields),
                     &region,
                 ));
             }
@@ -263,7 +265,7 @@ fn bucket_tags(bucket: &str, region: &str) -> Vec<Operation> {
             json!({"Bucket":bucket}),
             bucket,
             "Replaces all bucket tags. Enter Tagging with TagSet.",
-            Some("JSON fields"),
+            Some(Parameter::JsonFields),
             region,
         ),
     ]
@@ -275,7 +277,7 @@ fn s3_operation(
     input: Value,
     target: &str,
     warning: &'static str,
-    parameter: Option<&'static str>,
+    parameter: Option<Parameter>,
     region: &str,
 ) -> Operation {
     let mut operation = operation(label, "s3api", name, input, target, warning, parameter);

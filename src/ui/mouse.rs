@@ -1,16 +1,12 @@
 use ratatui::layout::Rect;
 
-use crate::model::Service;
+use crate::{app::Focus, model::Service};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum MouseTarget {
     Service(Service),
-    Pane(usize),
-    Row {
-        panel: usize,
-        focus: usize,
-        index: usize,
-    },
+    Pane(Focus),
+    Row { panel: usize, index: usize },
     OpenActions,
     ChooseAction(usize),
     ConfirmAction,

@@ -47,7 +47,7 @@ fn repository_actions_capture_context_and_keep_mutability_exclusions() {
     let get_policy = action(&actions, "get-repository-policy");
     assert_eq!(get_policy.input["repositoryName"], "team/api");
     let set_policy = action(&actions, "set-repository-policy");
-    assert_eq!(set_policy.parameter, Some("JSON fields"));
+    assert_eq!(set_policy.parameter, Some(Parameter::JsonFields));
     assert_eq!(set_policy.input["repositoryName"], "team/api");
     let args = set_policy
         .args(r#"{"policyText":"{\"Version\":\"2012-10-17\",\"Statement\":[]}"}"#)
@@ -64,7 +64,7 @@ fn repository_actions_capture_context_and_keep_mutability_exclusions() {
             .is_err()
     );
     let lifecycle = action(&actions, "put-lifecycle-policy");
-    assert_eq!(lifecycle.parameter, Some("JSON fields"));
+    assert_eq!(lifecycle.parameter, Some(Parameter::JsonFields));
     assert_eq!(lifecycle.input["repositoryName"], "team/api");
 
     let scan = action(&actions, "put-image-scanning-configuration");
@@ -124,7 +124,7 @@ fn repository_tag_updates_keep_the_arn_and_selected_key() {
     let actions = available(3, &tag, &repository);
 
     let update = action(&actions, "tag-resource");
-    assert_eq!(update.parameter, Some("Tag value"));
+    assert_eq!(update.parameter, Some(Parameter::TagValue));
     let args = update.args("new owner").unwrap();
     let input: Value = serde_json::from_str(&args[3]).unwrap();
     assert_eq!(input["resourceArn"], repository.detail["repositoryArn"]);
@@ -132,7 +132,9 @@ fn repository_tag_updates_keep_the_arn_and_selected_key() {
 
     let add = actions
         .iter()
-        .find(|action| action.name == "tag-resource" && action.parameter == Some("JSON fields"))
+        .find(|action| {
+            action.name == "tag-resource" && action.parameter == Some(Parameter::JsonFields)
+        })
         .unwrap();
     let args = add
         .args(r#"{"tags":[{"Key":"team","Value":"platform"}]}"#)

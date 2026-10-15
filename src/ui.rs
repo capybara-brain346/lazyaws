@@ -17,11 +17,12 @@ use chrome::{draw_help, draw_key_bar, pane_block, safe_text};
 use details::draw_details_and_log;
 
 use crate::{
-    app::App,
+    app::{App, Focus},
     config::{
-        self, Config, FOOTER_HEIGHT, MIN_HEIGHT, MIN_WIDTH, SERVICE_BAR_HEIGHT, STATUS_PANEL_HEIGHT,
+        self, ACTIONS_KEY_LABEL, ACTIONS_KEY_TEXT, APP_TITLE, Config, FOOTER_HEIGHT, MIN_HEIGHT,
+        MIN_WIDTH, SERVICE_BAR_HEIGHT, STATUS_PANEL_HEIGHT,
     },
-    model::{Resource, Service},
+    model::{PANEL_COUNT, Resource, Service},
 };
 
 pub fn draw(frame: &mut Frame, app: &App, config: &Config) {
@@ -73,11 +74,14 @@ pub fn draw_interactive(frame: &mut Frame, app: &App, config: &Config) -> HitMap
     draw_key_bar(frame, layout[2]);
     hit_map.regions.extend(pane_regions);
     hit_map.regions.extend(row_regions);
+    let actions_key = ACTIONS_KEY_LABEL.trim_start();
+    let actions_offset = text_width(ACTIONS_KEY_LABEL) - text_width(actions_key);
+    let actions_width = text_width(actions_key) + text_width(ACTIONS_KEY_TEXT.trim_end());
     hit_map.regions.push((
         Rect::new(
-            layout[2].x.saturating_add(1),
+            layout[2].x.saturating_add(actions_offset),
             layout[2].y,
-            9.min(layout[2].width.saturating_sub(1)),
+            actions_width.min(layout[2].width.saturating_sub(actions_offset)),
             1.min(layout[2].height),
         ),
         MouseTarget::OpenActions,
@@ -90,6 +94,10 @@ pub fn draw_interactive(frame: &mut Frame, app: &App, config: &Config) -> HitMap
     }
 
     hit_map
+}
+
+fn text_width(text: &str) -> u16 {
+    u16::try_from(Span::raw(text).width()).unwrap_or(u16::MAX)
 }
 
 fn draw_too_small(frame: &mut Frame, area: Rect) {
@@ -108,13 +116,13 @@ fn draw_too_small(frame: &mut Frame, area: Rect) {
 
 fn draw_services(frame: &mut Frame, area: Rect, app: &App, hit_map: &mut HitMap) {
     let mut spans = vec![Span::styled(
-        " lazyaws ",
+        APP_TITLE,
         Style::default()
             .fg(config::TITLE_COLOR)
             .add_modifier(Modifier::BOLD),
     )];
 
-    let mut tab_x = area.x.saturating_add(9);
+    let mut tab_x = area.x.saturating_add(text_width(APP_TITLE));
     for service in Service::ALL {
         let selected = service == app.service;
         let width = service.name().len() as u16 + 2;
@@ -197,7 +205,7 @@ fn draw_side_panels(
             Constraint::Fill(1),
             Constraint::Fill(1),
             Constraint::Fill(1),
-            if app.focus == 4 {
+            if app.focus == Focus::List(PANEL_COUNT - 1) {
                 Constraint::Fill(1)
             } else {
                 Constraint::Length(config::COMPACT_SIDE_PANEL_HEIGHT)
@@ -209,9 +217,15 @@ fn draw_side_panels(
         } else {
             1
         };
-        (0..5)
+        // Detail and Log keep the last list expanded, as the side column has no pane for them.
+        let expanded = match app.focus {
+            Focus::Status => 0,
+            Focus::List(panel) => panel + 1,
+            Focus::Detail | Focus::Log => PANEL_COUNT,
+        };
+        (0..=PANEL_COUNT)
             .map(|panel| {
-                if panel == app.focus.min(4) {
+                if panel == expanded {
                     Constraint::Fill(1)
                 } else {
                     Constraint::Length(height)
@@ -226,12 +240,12 @@ fn draw_side_panels(
         .split(area);
 
     draw_status(frame, areas[0], app, config, pane_regions);
-    for panel_index in 0..4 {
+    for panel in 0..PANEL_COUNT {
         draw_resource_panel(
             frame,
-            areas[panel_index + 1],
+            areas[panel + 1],
             app,
-            panel_index + 1,
+            panel,
             pane_regions,
             row_regions,
         );
@@ -270,10 +284,11 @@ fn draw_status(
     }
 
     frame.render_widget(
-        Paragraph::new(Line::from(spans)).block(pane_block("[1] Status", app.focus == 0)),
+        Paragraph::new(Line::from(spans))
+            .block(pane_block("[1] Status", app.focus == Focus::Status)),
         area,
     );
-    pane_regions.push((area, MouseTarget::Pane(0)));
+    pane_regions.push((area, MouseTarget::Pane(Focus::Status)));
 }
 
 fn draw_resource_panel(
@@ -284,11 +299,12 @@ fn draw_resource_panel(
     pane_regions: &mut Vec<(Rect, MouseTarget)>,
     row_regions: &mut Vec<(Rect, MouseTarget)>,
 ) {
-    let data = &app.snapshot.panels[panel - 1];
+    let data = &app.snapshot.panels[panel];
     let visible = app.visible_indices(panel);
+    let focused = app.focus == Focus::List(panel);
     let title = format!(
         "[{}] {} ({}/{})",
-        panel + 1,
+        panel + 2,
         data.title,
         visible.len(),
         data.items.len()
@@ -321,23 +337,23 @@ fn draw_resource_panel(
             let Some(resource) = data.items.get(index) else {
                 continue;
             };
-            let selected = app.selected[panel - 1] == index;
-            lines.push(resource_line(resource, selected, app.focus == panel));
+            let selected = app.selected[panel] == index;
+            lines.push(resource_line(resource, selected, focused));
         }
     }
 
     let error_rows = if data.error.is_some() { 1 } else { 0 };
     let list_rows = usize::from(area.height.saturating_sub(2)).saturating_sub(error_rows);
-    let scroll = resource_scroll(&visible, app.selected[panel - 1], list_rows, error_rows);
+    let scroll = resource_scroll(&visible, app.selected[panel], list_rows, error_rows);
 
     frame.render_widget(
         Paragraph::new(Text::from(lines))
             .scroll((scroll, 0))
-            .block(pane_block(&title, app.focus == panel)),
+            .block(pane_block(&title, focused)),
         area,
     );
 
-    pane_regions.push((area, MouseTarget::Pane(panel)));
+    pane_regions.push((area, MouseTarget::Pane(Focus::List(panel))));
     let content = Rect::new(
         area.x.saturating_add(1),
         area.y.saturating_add(1),
@@ -354,11 +370,7 @@ fn draw_resource_panel(
         let y = content.y.saturating_add(line as u16);
         row_regions.push((
             Rect::new(content.x, y, content.width, 1),
-            MouseTarget::Row {
-                panel: panel - 1,
-                focus: panel,
-                index,
-            },
+            MouseTarget::Row { panel, index },
         ));
     }
 }

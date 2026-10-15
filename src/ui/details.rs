@@ -7,7 +7,7 @@ use ratatui::{
 };
 
 use crate::{
-    app::App,
+    app::{App, Focus},
     config::{self, COMMAND_LOG_HEIGHT, COMPACT_LOG_HEIGHT, Config},
 };
 
@@ -20,7 +20,7 @@ pub(super) fn draw_details_and_log(
     config: &Config,
     pane_regions: &mut Vec<(Rect, MouseTarget)>,
 ) {
-    let log_height = if app.focus == 6 {
+    let log_height = if app.focus == Focus::Log {
         area.height
     } else if frame.area().height < config::FULL_LOG_MIN_HEIGHT {
         COMPACT_LOG_HEIGHT
@@ -63,7 +63,7 @@ fn draw_details(
             )));
         }
     } else {
-        if app.focus == 0 {
+        if app.focus == Focus::Status {
             append_account_details(&mut lines, app, config);
         }
 
@@ -104,10 +104,10 @@ fn draw_details(
     frame.render_widget(
         Paragraph::new(Text::from(lines))
             .scroll((scroll, 0))
-            .block(pane_block(title, app.focus == 5)),
+            .block(pane_block(title, app.focus == Focus::Detail)),
         area,
     );
-    pane_regions.push((area, MouseTarget::Pane(5)));
+    pane_regions.push((area, MouseTarget::Pane(Focus::Detail)));
 }
 
 fn append_account_details(lines: &mut Vec<Line<'static>>, app: &App, config: &Config) {
@@ -208,8 +208,8 @@ fn draw_logs(
     };
 
     frame.render_widget(
-        Paragraph::new(Text::from(lines)).block(pane_block(&title, app.focus == 6)),
+        Paragraph::new(Text::from(lines)).block(pane_block(&title, app.focus == Focus::Log)),
         area,
     );
-    pane_regions.push((area, MouseTarget::Pane(6)));
+    pane_regions.push((area, MouseTarget::Pane(Focus::Log)));
 }
