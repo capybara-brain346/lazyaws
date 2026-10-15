@@ -1,7 +1,8 @@
 # Homebrew tap
 
 The generated formula targets `lazyaws` for macOS 15 or newer and Linux on
-ARM64 or x86_64. The tap is not published yet.
+ARM64 or x86_64. The [public tap](https://github.com/capybara-brain346/homebrew-tap)
+contains the verified `v0.1.0` formula.
 AWS CLI v2 is needed for AWS operations. Demo mode works without AWS CLI or
 credentials.
 

@@ -44,6 +44,7 @@ test("generates Homebrew and AUR metadata from all four checksums", async () => 
 
     assert.match(formula, new RegExp(`version "${version}"`));
     assert.match(formula, new RegExp(`homepage "${config.homepage}"`));
+    assert.doesNotMatch(formula, /^  desc "A /m);
     assert.match(formula, /on_macos do/);
     assert.match(formula, /on_linux do/);
     assert.match(formula, new RegExp(`depends_on macos: :${config.minimumMacosRelease}`));
@@ -64,11 +65,13 @@ test("generates Homebrew and AUR metadata from all four checksums", async () => 
 
     assert.match(pkgbuild, /arch=\('x86_64'\)/);
     assert.match(pkgbuild, /depends=\('glibc' 'gcc-libs'\)/);
+    assert.match(pkgbuild, /options=\('!strip' '!debug'\)/);
     assert.match(pkgbuild, /provides=\("lazyaws=\$pkgver"\)/);
     assert.match(pkgbuild, /conflicts=\('lazyaws'\)/);
     assert.match(pkgbuild, /\/usr\/share\/licenses\/\$pkgname\/LICENSE/);
     assert.doesNotMatch(pkgbuild, /curl|install\.sh/i);
     assert.match(srcinfo, new RegExp(`pkgname = ${config.aurPackage}`));
+    assert.match(srcinfo, /options = !strip\n\toptions = !debug/);
     assert.match(srcinfo, /sha256sums = [a-f0-9]{64}/);
   } finally {
     await rm(directory, { recursive: true, force: true });

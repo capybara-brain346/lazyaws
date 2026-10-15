@@ -1,7 +1,8 @@
 # Package publication plan
 
-Plan date: 2026-10-15. Implementation is in progress. Publication status is
-recorded below; a prepared file is not a published package.
+Plan date: 2026-10-15. The first release is published on GitHub, Homebrew,
+and crates.io. The installer is live at `https://lazyaws.xyz/install.sh`.
+Current checks and deferred channels are recorded in `docs/releases.md`.
 
 ## Parallel phases and agent ownership
 
@@ -64,9 +65,10 @@ version. No Windows work is included.
 Access check: GitHub authentication works. The repository is now public and
 immutable releases are enabled. The Worker has `lazyaws.xyz` and
 `www.lazyaws.xyz`; both domains are retained in Wrangler config. R2 is not
-enabled. The owner chose GitHub Releases now and R2 later. crates.io needs a
-local publish credential; the owner has now supplied it. The owner declined
-AUR publication, so its recipe stays in this repository.
+enabled. The owner chose GitHub Releases now and R2 later. crates.io publication
+and a locked registry install passed. A publish credential is
+configured in the `crates.io` GitHub environment. The owner declined AUR
+publication, so its recipe stays in this repository.
 
 ## Support statement
 
@@ -74,8 +76,8 @@ Use this text in the README, website, install script, and release notes:
 
 > We support macOS, Ubuntu, Arch Linux, and Omarchy. macOS and supported Linux
 > users can use curl or Homebrew. Arch Linux and Omarchy users can also build
-> the supplied package recipe locally. Debian users can use curl or Homebrew, but Debian is not
-> supported. Windows is not supported.
+> the supplied package recipe locally. Debian users can use curl or Homebrew,
+> but Debian is not supported. Windows is not supported.
 
 Start with Ubuntu 24.04 and macOS 15 on ARM64 and x86_64. Add
 Arch Linux and Omarchy on x86_64, tested against their current releases.
@@ -257,14 +259,15 @@ Source + package metadata --> crates.io --> cargo install --> local binary
    that recipe. Do not claim that `pacman -S lazyaws` works until the package
    is in a configured binary repository.
 7. **Publish the Rust source package.** Add repository, homepage, readme,
-   keywords, categories, and a verified minimum Rust version to `Cargo.toml`.
+   keywords and categories to `Cargo.toml`. Set a minimum Rust version only
+   after checking that compiler; the first release uses checked stable Rust.
    Use an explicit package file list that includes all source modules,
    `assets/themes.json`, the lockfile, license, and README. Exclude the landing
    app, captures, and generated files. Run `cargo package --list` and
    `cargo publish --dry-run --locked`. Publish the first version manually.
-   Then set up crates.io Trusted Publishing for this repository and workflow.
-   Use [Cargo publication](https://doc.rust-lang.org/cargo/reference/publishing.html)
-   and [Trusted Publishing setup](https://blog.rust-lang.org/2025/07/11/crates-io-development-update-2025-07/).
+   Use the supplied Cargo credential as an environment secret for the manual
+   publish workflow. Keep it out of PR jobs and source files. Follow
+   [Cargo publication](https://doc.rust-lang.org/cargo/reference/publishing.html).
 8. **Publish and test in order.** Upload all files to a draft GitHub release.
    Verify all four archive digests and publish the release. Verify its public
    downloads before updating `latest.txt` on the site. Update and test the tap
@@ -273,7 +276,7 @@ Source + package metadata --> crates.io --> cargo install --> local binary
    published version.
 9. **Update user instructions.** Put curl and Homebrew before source-build
    steps. Use `lazyaws --demo` for the installed demo. State OS support and AWS
-   requirements. Add the Arch/Omarchy AUR option and the Linux Homebrew command.
+   requirements. Add the local Arch/Omarchy recipe and Linux Homebrew command.
    Update website copy tests and both installation guides.
 10. **Request reviewed listings.** Submit Homebrew core and MacPorts packages
     after the first stable release passes. Track PPA, Ubuntu archive, and Snap
@@ -420,7 +423,8 @@ supplies the release and installer check.
   and notarization before claiming that install path works. Do not instruct
   users to disable OS protection.
 
-Record completed checks and publication URLs in `docs/releases.md`. AUR SSH
-access, crates.io publication access, Apple signing access, and external listing
-acceptance still need verification. ArchWiki's full submission page was blocked
+Record completed checks and publication URLs in `docs/releases.md`.
+AUR publication and R2 are deferred by the owner. Apple signing access and
+external listing acceptance were not required for the completed curl/Homebrew
+release and remain unverified. ArchWiki's full submission page was blocked
 during research; recheck its current rules before publication.

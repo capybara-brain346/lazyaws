@@ -6,10 +6,10 @@
 | --- | --- |
 | Source repository | Public: https://github.com/capybara-brain346/lazyaws |
 | Website | Existing Worker at https://lazyaws.xyz; `www.lazyaws.xyz` is retained |
-| GitHub Releases | First release in preparation |
-| curl | Installer prepared; publish the latest pointer only after download checks |
-| Homebrew | macOS/Linux formula generator prepared; tap publication follows the release |
-| crates.io | Local credentials supplied; package checks precede first publication |
+| GitHub Releases | Published [v0.1.0](https://github.com/capybara-brain346/lazyaws/releases/tag/v0.1.0), immutable assets |
+| curl | Live at https://lazyaws.xyz/install.sh; latest is `v0.1.0` |
+| Homebrew | Published [tap](https://github.com/capybara-brain346/homebrew-tap); native installs and formula tests pass on all four targets |
+| crates.io | Published [0.1.0](https://crates.io/crates/lazyaws/0.1.0); locked registry install and demo checks pass |
 | AUR | Recipe prepared; owner declined AUR publication |
 | R2 | Account not enabled; owner chose GitHub downloads now and R2 later |
 | Homebrew core / MacPorts / Ubuntu / Snap | Later review; no listing claimed |
@@ -105,9 +105,11 @@ It is not in the AUR or a configured pacman repository. Do not advertise
 For the first crates.io release, use the local Cargo credential and run
 `cargo publish --locked` from the clean release commit. The publish command
 sends only the source package selected by `Cargo.toml`; it does not upload
-the website or credentials. Later, configure Trusted Publishing for
-`.github/workflows/crates.yml` and its `crates.io` environment. That workflow
-can run a dry run or publish from a matching stable tag.
+the website or credentials. `.github/workflows/crates.yml` can run a dry run
+or publish from a matching stable tag. Its publish job reads
+`CARGO_REGISTRY_TOKEN` from the `crates.io` GitHub environment. The supplied
+credential is configured there; it is not available to pull-request jobs.
+Replace it through GitHub environment secrets when it expires or is revoked.
 
 After the public downloads and tap pass, write the exact tag plus a newline
 to `apps/landing/public/latest.txt`. Build and deploy the landing app with
@@ -169,3 +171,17 @@ download test -> Operation::args -> args::download_file -> download_path [same]
 - assert_eq(raw destination)
 + assert_eq(canonical destination)
 ```
+
+## First release verification
+
+- [Native release checks](https://github.com/capybara-brain346/lazyaws/actions/runs/38738345755): all four targets passed formatting, Clippy, 99 Rust tests, release builds, extracted binary checks, and demo exit. The Linux x86_64 binary also passed in a clean Arch container.
+- [Public install checks](https://github.com/capybara-brain346/lazyaws/actions/runs/38739508477): the deployed curl script and Homebrew formula installed and passed version, help, and demo checks on all four targets.
+- All four public archive digests match `SHA256SUMS` and GitHub's asset digests.
+- All six browser tests pass against `https://lazyaws.xyz`. The deployed Worker version is `89f29d77-721e-432f-aef2-1b15eb0fd57b`. Both custom domains remain attached.
+- A registry install of `lazyaws 0.1.0` passed help, version, and terminal demo checks on Omarchy.
+- The local Arch recipe builds one package from the public archive. `!strip` and `!debug` keep the already stripped binary unchanged and prevent an empty debug package. No package was installed into the user's system for this check.
+
+Homebrew core is deferred until the project meets its current
+[acceptance policy](https://docs.brew.sh/Package-Acceptance-Policy). The tap is
+independent of core acceptance. AUR publication and R2 remain deferred by the
+owner. Other reviewed listings remain later phases.

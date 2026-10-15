@@ -1,0 +1,19 @@
+pkgname=lazyaws-bin
+pkgver=0.1.0
+pkgrel=1
+pkgdesc='A Lazygit-style terminal interface for AWS'
+arch=('x86_64')
+url='https://lazyaws.xyz'
+license=('MIT')
+depends=('glibc' 'gcc-libs')
+options=('!strip' '!debug')
+provides=("lazyaws=$pkgver")
+conflicts=('lazyaws')
+source=('https://github.com/capybara-brain346/lazyaws/releases/download/v0.1.0/lazyaws-v0.1.0-x86_64-unknown-linux-gnu.tar.gz')
+sha256sums=('5e9405338264b12f8c38b06b59c4985d39426c377dbb5705eced6ef63444e675')
+
+package() {
+  install -Dm755 "$srcdir/lazyaws" "$pkgdir/usr/bin/lazyaws"
+  install -Dm644 "$srcdir/LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+  install -Dm644 "$srcdir/README.txt" "$pkgdir/usr/share/doc/$pkgname/README.txt"
+}

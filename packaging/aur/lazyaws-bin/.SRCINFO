@@ -1,0 +1,17 @@
+pkgbase = lazyaws-bin
+	pkgdesc = A Lazygit-style terminal interface for AWS
+	pkgver = 0.1.0
+	pkgrel = 1
+	url = https://lazyaws.xyz
+	arch = x86_64
+	license = MIT
+	depends = glibc
+	depends = gcc-libs
+	provides = lazyaws=0.1.0
+	conflicts = lazyaws
+	options = !strip
+	options = !debug
+	source = https://github.com/capybara-brain346/lazyaws/releases/download/v0.1.0/lazyaws-v0.1.0-x86_64-unknown-linux-gnu.tar.gz
+	sha256sums = 5e9405338264b12f8c38b06b59c4985d39426c377dbb5705eced6ef63444e675
+
+pkgname = lazyaws-bin

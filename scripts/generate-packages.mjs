@@ -91,6 +91,7 @@ function archiveUrl(config, version, name) {
 }
 
 function renderFormula(config, metadata, targets, checksums) {
+  const description = metadata.description.replace(/^A /, "");
   const targetBlock = (cpu, target) => {
     const name = archiveName(config.name, metadata.version, target);
     return `    ${cpu} do\n      url ${JSON.stringify(archiveUrl(config, metadata.version, name))}\n      sha256 "${checksums.get(name)}"\n    end`;
@@ -102,7 +103,7 @@ function renderFormula(config, metadata, targets, checksums) {
   const platformBlocks = `  on_macos do\n    depends_on macos: :${config.minimumMacosRelease}\n${targetBlock("on_arm", darwinArm)}\n${targetBlock("on_intel", darwinIntel)}\n  end\n\n  on_linux do\n${targetBlock("on_arm", linuxArm)}\n${targetBlock("on_intel", linuxIntel)}\n  end`;
 
   return `class Lazyaws < Formula
-  desc ${JSON.stringify(metadata.description)}
+  desc ${JSON.stringify(description)}
   homepage ${JSON.stringify(config.homepage)}
   version "${metadata.version}"
   license "${metadata.license}"
@@ -148,6 +149,7 @@ arch=('x86_64')
 url=${pkgurl}
 license=(${pkglicense})
 depends=('glibc' 'gcc-libs')
+options=('!strip' '!debug')
 provides=("${config.name}=\$pkgver")
 conflicts=('${config.name}')
 source=(${shellQuote(url)})
@@ -171,6 +173,8 @@ package() {
 \tdepends = gcc-libs
 \tprovides = ${config.name}=${metadata.version}
 \tconflicts = ${config.name}
+\toptions = !strip
+\toptions = !debug
 \tsource = ${url}
 \tsha256sums = ${checksum}
 
