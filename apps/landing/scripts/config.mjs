@@ -1,5 +1,7 @@
 export const tooling = {
-  browserPath: process.env.CHROMIUM_PATH || "/usr/bin/chromium",
+  browserPath:
+    process.env.CHROMIUM_PATH ||
+    (process.env.CI ? undefined : "/usr/bin/chromium"),
   browserArgs: ["--no-sandbox"],
   url: "http://localhost:3000",
   testBaseUrl: process.env.TEST_BASE_URL,

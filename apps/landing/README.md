@@ -27,6 +27,25 @@ npm start
 
 The browser tests use Chromium at `/usr/bin/chromium`. Set `CHROMIUM_PATH` if the executable is elsewhere. The tests cover service selection, command copy, clipboard failure, required links, image loading, and page width on desktop and phone viewports.
 
+## Continuous integration
+
+`.github/workflows/landing.yml` runs on pushes and pull requests to `main`. It uses Node.js 22 and 24, installs from this app's lockfile with `npm ci`, caches npm downloads, then runs lint, build, type checks, and browser tests. CI installs Playwright's Chromium and its system dependencies. It does not need a system browser or Cloudflare credentials.
+
+```text
+Push or PR to main -> Node 22 / Node 24
+  -> npm ci -> install Chromium -> lint -> build -> typecheck -> browser tests
+```
+
+In CI, the shared browser settings select Playwright's installed Chromium. `CHROMIUM_PATH` overrides the browser path in all environments. Local runs keep the system browser default.
+
+```text
+Before: Playwright config / demo capture -> tooling.browserPath -> system Chromium
+After:  Playwright config / demo capture -> tooling.browserPath
+          -> CHROMIUM_PATH, if set
+          -> Playwright Chromium in CI
+          -> system Chromium locally
+```
+
 ## Deploy to Cloudflare Workers
 
 The site uses a Next.js static export and Workers Static Assets. It needs no server process, database, or runtime secrets. `npm run build` creates `out/`. `npm start` serves that build in the local Workers runtime at http://localhost:3000.
