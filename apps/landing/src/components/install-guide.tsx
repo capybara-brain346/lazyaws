@@ -23,23 +23,14 @@ export function InstallGuide() {
           <br />
           <span>More getting things done.</span>
         </h2>
-        <p>
-          A terminal, Rust, and you. Start with the demo, then bring your own
-          AWS account.
-        </p>
+        <p>{site.support}</p>
         <div className="requirements">
           <span>Before you start</span>
-          <a href={site.rust} target="_blank" rel="noopener noreferrer">
-            Rust toolchain <ArrowUpRight />
-          </a>
           <a href={site.awsCli} target="_blank" rel="noopener noreferrer">
             AWS CLI v2 <ArrowUpRight />
           </a>
         </div>
-        <p className="install-note">
-          Rust and Git are needed for the demo. AWS CLI v2 and configured
-          credentials are needed for your account.
-        </p>
+        <p className="install-note">{site.installNote}</p>
       </div>
       <ol className="install-steps">
         {installation.map((step, index) => (

@@ -4,6 +4,12 @@ version = "0.1.0"
 edition = "2024"
 description = "A Lazygit-style terminal interface for AWS"
 license = "MIT"
+repository = "https://github.com/capybara-brain346/lazyaws"
+homepage = "https://lazyaws.xyz"
+readme = "README.md"
+keywords = ["aws", "terminal", "tui"]
+categories = ["command-line-utilities"]
+include = ["/Cargo.toml", "/Cargo.lock", "/LICENSE", "/README.md", "/src/**", "/assets/themes.json", "/tests/ui.rs", "/tests/mouse.rs", "/tests/common/**", "/tests/fixtures/**"]
 
 [dependencies]
 crossterm = { version = "0.29", features = ["osc52"] }

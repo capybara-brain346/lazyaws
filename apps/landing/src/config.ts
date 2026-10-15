@@ -1,10 +1,16 @@
+import distribution from "../../../distribution/config.json";
+
 export const site = {
   name: "Lazy AWS",
   description:
     "Your AWS resources. One terminal. Browse, inspect, and run confirmed AWS CLI actions without leaving your keyboard.",
-  github: "https://github.com/capybara-brain346/lazyaws",
+  homepage: distribution.homepage,
+  github: `https://github.com/${distribution.repository}`,
   author: "https://piyushc.com",
-  rust: "https://www.rust-lang.org/tools/install",
+  support:
+    "We support macOS, Ubuntu, Arch Linux, and Omarchy. Windows is not supported.",
+  installNote:
+    "Use curl or Homebrew on macOS and Linux. Debian installs are available without a support guarantee. AWS CLI v2 and credentials are needed only for your AWS account.",
   awsCli:
     "https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html",
   copyFeedbackMs: 2500,
@@ -24,16 +30,23 @@ export const site = {
 
 export const installation = [
   {
-    title: "Get the source",
-    description: "Clone the repository and open the project.",
-    command: `git clone ${site.github}.git\ncd lazyaws`,
-    label: "Clone repository",
+    title: "Install with curl",
+    description:
+      "Download the binary for your system. No Rust or Git needed.",
+    command: `curl -fsSL ${site.homepage}/install.sh | sh`,
+    label: "Install with curl",
+  },
+  {
+    title: "Or use Homebrew",
+    description: "Use the same tap on macOS or Linux with Homebrew installed.",
+    command: `brew install ${distribution.tap}/${distribution.name}`,
+    label: "Install with Homebrew",
   },
   {
     title: "Take it for a spin",
     description:
       "Start with local sample data. No AWS account or credentials needed.",
-    command: "cargo run -- --demo",
+    command: "lazyaws --demo",
     label: "Run demo",
   },
   {
@@ -41,14 +54,8 @@ export const installation = [
     description:
       "Use an existing AWS CLI profile. Sign in first if your profile uses SSO.",
     command:
-      "aws sso login --profile dev\ncargo run -- --profile dev --region eu-west-1",
+      "aws sso login --profile dev\nlazyaws --profile dev --region eu-west-1",
     label: "Connect AWS profile",
-  },
-  {
-    title: "Make yourself at home",
-    description: "Build the release binary and see all available options.",
-    command: "cargo build --release\n./target/release/lazyaws --help",
-    label: "Build release",
   },
 ] as const;
 

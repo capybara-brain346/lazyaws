@@ -86,6 +86,13 @@ test("install commands, service previews, and guide work at each viewport", asyn
   );
   await page.getByRole("link", { name: "Get started", exact: true }).click();
   await expect(page).toHaveURL(/#install$/);
+  await expect(page.getByText(site.support, { exact: true })).toBeVisible();
+  await expect(page.locator("#install code").nth(0)).toHaveText(
+    `curl -fsSL ${site.homepage}/install.sh | sh`,
+  );
+  await expect(page.locator("#install code").nth(1)).toHaveText(
+    "brew install capybara-brain346/tap/lazyaws",
+  );
   await page
     .getByRole("button", { name: "Copy run demo", exact: true })
     .click();
@@ -93,7 +100,7 @@ test("install commands, service previews, and guide work at each viewport", asyn
     page.getByRole("status").filter({ hasText: "Copied to clipboard." }),
   ).toBeVisible();
   expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
-    "cargo run -- --demo",
+    "lazyaws --demo",
   );
   await expect(page.locator(".tour-timeline > li")).toHaveCount(3);
   await expect(

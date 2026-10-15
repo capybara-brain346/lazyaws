@@ -2,21 +2,54 @@ name: Rust
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [main]
   pull_request:
-    branches: [ "main" ]
+    branches: [main]
+
+permissions:
+  contents: read
 
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  build:
-
-    runs-on: ubuntu-latest
-
+  targets:
+    runs-on: ubuntu-24.04
+    outputs:
+      matrix: ${{ steps.targets.outputs.matrix }}
     steps:
-    - uses: actions/checkout@v4
-    - name: Build
-      run: cargo build --verbose
-    - name: Run tests
-      run: cargo test --verbose
+      - uses: actions/checkout@eef61447b9ff4aafe5dcd4e0bbf5d482be7e7871 # actions/checkout v4.2.1
+      - name: Run packaging and installer checks
+        run: node --test scripts/*.test.mjs tests/install.test.mjs
+      - name: Check generated installer
+        run: |
+          node scripts/generate-installer.mjs
+          git diff --exit-code -- apps/landing/public/install.sh
+      - id: targets
+        run: node -e 'const c=require("./distribution/config.json"); console.log(`matrix=${JSON.stringify(c.targets)}`)' >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: targets
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.targets.outputs.matrix) }}
+    runs-on: ${{ matrix.runner }}
+    env:
+      TARGET: ${{ matrix.triple }}
+    steps:
+      - uses: actions/checkout@eef61447b9ff4aafe5dcd4e0bbf5d482be7e7871 # actions/checkout v4.2.1
+      - name: Install stable Rust components
+        run: |
+          rustup update stable --no-self-update
+          rustup default stable
+          rustup component add rustfmt clippy
+          rustup target add "$TARGET"
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+      - name: Run Clippy
+        run: cargo clippy --locked --all-targets --target "$TARGET" -- -D warnings
+      - name: Run tests
+        run: cargo test --locked --target "$TARGET"
+      - name: Build release binary
+        run: cargo build --release --locked --target "$TARGET"

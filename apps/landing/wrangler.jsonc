@@ -5,6 +5,10 @@
   "compatibility_date": "2026-10-15",
   "workers_dev": true,
   "preview_urls": false,
+  "routes": [
+    { "pattern": "lazyaws.xyz", "custom_domain": true },
+    { "pattern": "www.lazyaws.xyz", "custom_domain": true }
+  ],
   "assets": {
     "directory": "./out",
     "not_found_handling": "404-page"

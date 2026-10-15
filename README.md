@@ -8,7 +8,7 @@
 
 Lazy AWS shells out to your AWS CLI and shows the exact command before it runs, so there are no hidden API calls. Try it with local sample data, then point it at your account.
 
-[Website](https://lazyaws.choudhari-piyush.workers.dev) · [Service guide](docs/services.md) · [AWS CLI action inventory](docs/aws-cli-actions.md) · [Captured demo](docs/demo.txt)
+[Website](https://lazyaws.xyz) · [Service guide](docs/services.md) · [AWS CLI action inventory](docs/aws-cli-actions.md) · [Captured demo](docs/demo.txt)
 
 </div>
 
@@ -22,13 +22,48 @@ Lazy AWS shells out to your AWS CLI and shows the exact command before it runs, 
 - **Themes**: press `t` to preview and apply one of 20 bundled color themes, or keep the default terminal colors.
 - **Demo mode**: `cargo run -- --demo` runs on local sample data with no AWS CLI or credentials.
 
-## Requirements
+## Install
 
-- Rust toolchain
-- AWS CLI v2
-- Configured AWS credentials with the permissions in [the service guide](docs/services.md)
+We support macOS, Ubuntu, Arch Linux, and Omarchy. Windows is not supported.
+The first binary targets are macOS 15 and Ubuntu 24.04 on ARM64 and x86_64,
+plus Arch Linux and Omarchy on x86_64. Debian users can use curl or Homebrew,
+but Debian is not supported.
+
+Use curl on macOS or Linux:
+
+```sh
+curl -fsSL https://lazyaws.xyz/install.sh | sh
+```
+
+The script checks the archive's SHA-256 and installs to `~/.local/bin` without
+sudo. If needed, add that directory to your PATH. To inspect the script first:
+
+```sh
+curl -fsSLo install.sh https://lazyaws.xyz/install.sh
+less install.sh
+sh install.sh
+```
+
+Or use Homebrew on macOS or Linux:
+
+```sh
+brew install capybara-brain346/tap/lazyaws
+```
+
+Run the installed demo without AWS credentials:
+
+```sh
+lazyaws --demo
+```
+
+AWS mode needs AWS CLI v2 and credentials with the permissions in
+[the service guide](docs/services.md). Rust is needed only for source builds.
+See [release operations](docs/releases.md) for channel status, AUR publication,
+upgrades, and rollback.
 
 ## Getting started
+
+These steps build from source. For a binary install, use the commands above.
 
 1. Install Rust and AWS CLI v2, and configure credentials through the AWS CLI.
 2. Preview with sample data (no AWS needed):

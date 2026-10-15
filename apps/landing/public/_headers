@@ -1,0 +1,9 @@
+/install.sh
+  Content-Type: text/plain; charset=utf-8
+  Cache-Control: public, max-age=60, must-revalidate
+  X-Content-Type-Options: nosniff
+
+/latest.txt
+  Content-Type: text/plain; charset=utf-8
+  Cache-Control: public, max-age=60, must-revalidate
+  X-Content-Type-Options: nosniff

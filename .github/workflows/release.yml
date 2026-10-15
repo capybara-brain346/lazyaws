@@ -1,0 +1,144 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Build and test only, or create and publish a stable release
+        required: true
+        type: choice
+        options: [dry-run, build]
+        default: dry-run
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  prepare:
+    runs-on: ubuntu-24.04
+    outputs:
+      matrix: ${{ steps.release.outputs.matrix }}
+      version: ${{ steps.release.outputs.version }}
+      mode: ${{ steps.release.outputs.mode }}
+    steps:
+      - uses: actions/checkout@eef61447b9ff4aafe5dcd4e0bbf5d482be7e7871 # actions/checkout v4.2.1
+      - name: Run packaging and installer checks
+        run: node --test scripts/*.test.mjs tests/install.test.mjs
+      - name: Check generated installer
+        run: |
+          node scripts/generate-installer.mjs
+          git diff --exit-code -- apps/landing/public/install.sh
+      - id: release
+        env:
+          REQUESTED_MODE: ${{ github.event_name == 'push' && 'build' || inputs.mode }}
+        run: |
+          node --input-type=module <<'NODE'
+          import { appendFileSync } from "node:fs";
+          import { execFileSync } from "node:child_process";
+
+          const metadata = JSON.parse(execFileSync("node", ["scripts/package-release.mjs", "--metadata"], { encoding: "utf8" }));
+          const mode = process.env.REQUESTED_MODE;
+          if (!["dry-run", "build"].includes(mode)) throw new Error(`invalid mode: ${mode}`);
+
+          if (mode === "build") {
+            if (process.env.GITHUB_REF_TYPE !== "tag" || !/^v\d+\.\d+\.\d+$/.test(process.env.GITHUB_REF_NAME)) {
+              throw new Error("build mode requires a stable vX.Y.Z tag ref");
+            }
+            if (process.env.GITHUB_REF_NAME !== `v${metadata.version}`) {
+              throw new Error(`tag ${process.env.GITHUB_REF_NAME} does not match Cargo.toml version ${metadata.version}`);
+            }
+          }
+
+          appendFileSync(process.env.GITHUB_OUTPUT, `matrix=${JSON.stringify(metadata.targets)}\nversion=${metadata.version}\nmode=${mode}\n`);
+          NODE
+
+  build:
+    needs: prepare
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.prepare.outputs.matrix) }}
+    runs-on: ${{ matrix.runner }}
+    env:
+      TARGET: ${{ matrix.triple }}
+      VERSION: ${{ needs.prepare.outputs.version }}
+    steps:
+      - uses: actions/checkout@eef61447b9ff4aafe5dcd4e0bbf5d482be7e7871 # actions/checkout v4.2.1
+      - name: Install stable Rust components
+        run: |
+          rustup update stable --no-self-update
+          rustup default stable
+          rustup component add rustfmt clippy
+          rustup target add "$TARGET"
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+      - name: Run Clippy
+        run: cargo clippy --locked --all-targets --target "$TARGET" -- -D warnings
+      - name: Run tests
+        run: cargo test --locked --target "$TARGET"
+      - name: Build release binary
+        run: cargo build --release --locked --target "$TARGET"
+      - name: Package and test extracted binary
+        run: |
+          node scripts/package-release.mjs "$TARGET" "target/$TARGET/release/lazyaws" dist
+          archive="dist/lazyaws-v$VERSION-$TARGET.tar.gz"
+          printf '%s\n' lazyaws LICENSE README.txt > expected-entries.txt
+          tar -tzf "$archive" | diff -u expected-entries.txt -
+          mkdir extracted
+          tar -xzf "$archive" -C extracted
+          ./extracted/lazyaws --help >/dev/null
+          test "$(./extracted/lazyaws --version)" = "lazyaws $VERSION"
+          python3 scripts/check-demo-pty.py ./extracted/lazyaws
+          if [ "$TARGET" = "x86_64-unknown-linux-gnu" ]; then
+            docker run --rm --volume "$PWD/extracted:/release:ro" archlinux:base /release/lazyaws --help >/dev/null
+            docker run --rm --volume "$PWD/extracted:/release:ro" archlinux:base /release/lazyaws --version
+          fi
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # actions/upload-artifact v4.6.2
+        with:
+          name: lazyaws-${{ matrix.triple }}
+          path: dist/*.tar.gz
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    needs: [prepare, build]
+    if: needs.prepare.outputs.mode == 'build'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    env:
+      TAG: ${{ github.ref_name }}
+    steps:
+      - uses: actions/checkout@eef61447b9ff4aafe5dcd4e0bbf5d482be7e7871 # actions/checkout v4.2.1
+      - uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # actions/download-artifact v4.1.8
+        with:
+          pattern: lazyaws-*
+          path: dist
+          merge-multiple: true
+      - name: Create and verify release assets
+        run: |
+          node scripts/package-release.mjs --checksums dist
+          (cd dist && sha256sum --check SHA256SUMS)
+          expected="$(printf '%s\n' dist/lazyaws-v${TAG#v}-*.tar.gz dist/SHA256SUMS | sort)"
+          actual="$(find dist -maxdepth 1 -type f | sort)"
+          test "$actual" = "$expected"
+
+          if existing_draft="$(gh release view "$TAG" --json isDraft --jq .isDraft 2>/dev/null)"; then
+            test "$existing_draft" = true || { echo "Release $TAG already exists and is published" >&2; exit 1; }
+          else
+            gh release create "$TAG" --draft --verify-tag --title "lazyaws $TAG" --generate-notes
+          fi
+
+          gh release upload "$TAG" dist/*.tar.gz dist/SHA256SUMS --clobber
+          mkdir release-assets
+          gh release download "$TAG" --dir release-assets
+          diff -r dist release-assets
+          (cd release-assets && sha256sum --check SHA256SUMS)
+          gh release edit "$TAG" --draft=false
+        env:
+          GH_TOKEN: ${{ github.token }}

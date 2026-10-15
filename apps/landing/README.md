@@ -2,7 +2,7 @@
 
 A one-page Next.js site with shadcn/ui buttons, Lucide icons, local fonts, generated landscape art, and real Lazy AWS demo captures.
 
-Live site: https://lazyaws.choudhari-piyush.workers.dev
+Live site: https://lazyaws.xyz
 
 ## Run
 
@@ -56,7 +56,9 @@ npx wrangler login
 npm run deploy
 ```
 
-`wrangler.jsonc` sets the Worker name, Cloudflare account, compatibility date, asset directory, and 404 handling. The Worker uses the account's `workers.dev` address. Preview version URLs are disabled. Credentials stay in the local Wrangler store; do not add them to the repository.
+`wrangler.jsonc` sets the Worker name, Cloudflare account, compatibility date, asset directory, and 404 handling. The Worker uses `lazyaws.xyz` and `www.lazyaws.xyz`; both custom domains are
+recorded in `wrangler.jsonc`. The `workers.dev` address remains available.
+Preview version URLs are disabled. Credentials stay in the local Wrangler store; do not add them to the repository.
 
 ```text
 src/ + public/ --next build--> out/ --wrangler deploy--> Workers Static Assets
@@ -102,7 +104,7 @@ Header: logo + GitHub
 Hero: landscape + real service previews
           |
           v
-Install: clone -> demo -> AWS profile -> release build
+Install: curl or Homebrew -> installed demo -> AWS profile
           |
           v
 Guide: matching cloud artwork + browse -> inspect -> confirm
@@ -170,6 +172,23 @@ Section artwork --compressed WebP--> public/icons --> page sections
 
 ## Scope
 
-Package install commands will be added when distribution is ready. The page currently documents source builds with Cargo. It has no sign-up, tracking, remote font requests, or backend.
+The page documents curl and Homebrew installs on macOS and Linux. The install
+script and latest-version file are static assets. GitHub Releases hosts the
+versioned binary archives and checksums. R2 is deferred until account activation.
+There is no sign-up, tracking, remote font request, or backend.
+
+The website imports `distribution/config.json` for the homepage, repository, and
+Homebrew tap. `next.config.ts` sets the Turbopack root to the repository so this
+shared file can be resolved. The release version remains in `Cargo.toml`.
+
+```text
+Before: Home -> InstallGuide -> CopyButton(source commands)
+After:  Home -> InstallGuide -> CopyButton(curl / brew / installed demo)
+Config: distribution/config.json -> src/config.ts -> InstallGuide
+```
+
+`public/_headers` gives `install.sh` and `latest.txt` short cache lifetimes.
+Publish `latest.txt` only after all release downloads pass. Release operations
+and channel status are in [the release guide](../../docs/releases.md).
 
 The runtime dependency audit passes. The full npm audit currently reports five high-severity advisories in the development-only Next.js lint dependency chain. No compatible patched `braces` release was available when checked. Do not use these lint tools to process untrusted file patterns.
