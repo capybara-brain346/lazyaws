@@ -129,10 +129,16 @@ fn download_provides_required_cli_flags_without_interpreting_object_keys_as_opti
         "lazyaws-required-download-{}.txt",
         std::process::id()
     ));
+    let expected_destination = destination
+        .parent()
+        .unwrap()
+        .canonicalize()
+        .unwrap()
+        .join(destination.file_name().unwrap());
     let args = action.args(destination.to_str().unwrap()).unwrap();
     assert_eq!(args[2], "--bucket=selected-bucket");
     assert_eq!(args[3], "--key=--cli-input-json file://literal");
-    assert_eq!(args[4], destination.to_str().unwrap());
+    assert_eq!(args[4], expected_destination.to_str().unwrap());
     assert!(!args.iter().any(|arg| arg == "--cli-input-json"));
     action.input = json!({"Bucket":"selected-bucket"});
     assert!(action.args(destination.to_str().unwrap()).is_err());
