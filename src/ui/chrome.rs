@@ -10,6 +10,8 @@ use crate::config::{self, HELP_HEIGHT, HELP_WIDTH};
 
 pub(super) fn draw_key_bar(frame: &mut Frame, area: Rect) {
     let line = Line::from(vec![
+        Span::styled(" a ", Style::default().fg(config::KEY_COLOR)),
+        Span::raw("actions  "),
         Span::styled(" 1 ", Style::default().fg(config::KEY_COLOR)),
         Span::raw("status  "),
         Span::styled("2–5", Style::default().fg(config::KEY_COLOR)),
@@ -51,6 +53,12 @@ pub(super) fn draw_help(frame: &mut Frame, area: Rect) {
         ("Filter", "/ then type; Enter/Esc finish editing"),
         ("Details", "Enter opens  Esc returns  PgUp/PgDn scroll"),
         ("Refresh", "r refresh AWS data"),
+        ("Mouse", "Click tabs, panes, rows, and action buttons"),
+        ("Actions", "a or right-click a resource; confirm with y"),
+        (
+            "S3 files",
+            "Upload or download one file; existing downloads stay safe",
+        ),
         ("Help", "? show or close this screen"),
         ("Quit", "q or Ctrl+C quit"),
     ]

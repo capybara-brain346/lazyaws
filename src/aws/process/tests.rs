@@ -494,3 +494,6 @@ fn expired_refresh_deadline_skips_commands() {
     assert!(logs[0].contains("remaining commands were skipped"));
     assert!(!transcript.exists());
 }
+
+#[path = "action_tests.rs"]
+mod action_tests;

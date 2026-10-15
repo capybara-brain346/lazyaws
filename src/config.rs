@@ -28,9 +28,11 @@ pub const CLI_MAX_ATTEMPTS: u8 = 1;
 pub const OUTPUT_BUFFER_BYTES: usize = 8192;
 pub const MAX_ITEMS: usize = 500;
 pub const MAX_OUTPUT_BYTES: u64 = 16 * 1024 * 1024;
+pub const S3_MAX_UPLOAD_BYTES: u64 = 5 * 1024 * 1024 * 1024;
 pub const ECS_SERVICES_BATCH: usize = 10;
 pub const ECS_TASKS_BATCH: usize = 100;
 pub const ECS_CLUSTERS_BATCH: usize = 100;
+pub const DOWNLOAD_STAGE_ATTEMPTS: usize = 100;
 pub const LOG_CAPACITY: usize = 100;
 pub const SIDE_PANEL_WIDTH_NUMERATOR: u32 = 1;
 pub const SIDE_PANEL_WIDTH_DENOMINATOR: u32 = 3;
@@ -41,15 +43,17 @@ pub const STATUS_PANEL_HEIGHT: u16 = 3;
 pub const COMPACT_SIDE_PANEL_HEIGHT: u16 = 3;
 pub const NORMAL_LAYOUT_MIN_HEIGHT: u16 = 28;
 pub const COMPACT_LAYOUT_MIN_HEIGHT: u16 = 21;
-pub const SERVICE_BAR_HEIGHT: u16 = 2;
+pub const SERVICE_BAR_HEIGHT: u16 = 3;
 pub const FOOTER_HEIGHT: u16 = 1;
 pub const MIN_WIDTH: u16 = 60;
 pub const MIN_HEIGHT: u16 = 20;
 pub const HELP_WIDTH: u16 = 64;
 pub const HELP_HEIGHT: u16 = 23;
+pub const ACTION_WIDTH: u16 = 88;
+pub const ACTION_HEIGHT: u16 = 18;
 pub const DETAIL_SCROLL_STEP: u16 = 10;
 pub const DEFAULT_AWS_BIN: &str = "aws";
-pub const DEFAULT_PROFILE_LABEL: &str = "default";
+pub const DEFAULT_PROFILE_LABEL: &str = "AWS chain";
 pub const DEFAULT_REGION_LABEL: &str = "AWS config";
 pub const PROCESS_KILL_BIN: &str = "kill";
 
@@ -74,7 +78,9 @@ impl Default for Config {
 
 pub const USAGE: &str = "lazyaws [--demo] [--profile NAME] [--region REGION] [--aws-bin PATH]\n\n\
 Keys: [ and ] services, Tab panels, j/k rows, Enter details, / filter, r refresh, ? help, q quit.\n\
-AWS mode uses your AWS CLI credentials and read commands. --demo needs no credentials.\n\
+AWS mode uses your AWS CLI credentials for read commands and actions after confirmation.\n\
+Press a to choose an action. Use the mouse to select services, panels, and rows.\n\
+--demo needs no credentials.\n\
 Environment: LAZYAWS_AWS_BIN overrides the AWS executable. AWS_PROFILE and AWS_REGION\n\
 are passed through to the AWS CLI when no command-line override is supplied.";
 

@@ -78,11 +78,16 @@ impl FetchContext<'_> {
         .and_then(|stdout| {
             let output = std::str::from_utf8(&stdout)
                 .map_err(|error| format!("AWS CLI returned invalid UTF-8: {error}"))?;
-            let value: Value = serde_json::from_str(output)
-                .map_err(|error| format!("AWS CLI returned invalid JSON: {error}"))?;
+            let value = if output.trim().is_empty() {
+                Value::Object(Default::default())
+            } else {
+                serde_json::from_str(output)
+                    .map_err(|error| format!("AWS CLI returned invalid JSON: {error}"))?
+            };
             if !value.is_object() {
                 return Err("AWS CLI JSON output must be an object".into());
             }
+            validate_response(command, &value)?;
             Ok(value)
         }) {
             Ok(value) => {
@@ -97,6 +102,50 @@ impl FetchContext<'_> {
                 Err(error)
             }
         }
+    }
+}
+
+fn validate_response(command: &[String], response: &Value) -> Result<(), String> {
+    if command.first().map(String::as_str) != Some("ecr")
+        || command.get(1).map(String::as_str) != Some("batch-delete-image")
+    {
+        return Ok(());
+    }
+
+    let failures = match response.get("failures") {
+        None => return Ok(()),
+        Some(Value::Array(failures)) => failures,
+        Some(_) => return Err("AWS response `failures` must be an array".into()),
+    };
+    let failures = failures
+        .iter()
+        .map(|failure| {
+            let image = failure
+                .get("imageId")
+                .ok_or("AWS response image failure is missing `imageId`")?;
+            let id = image
+                .get("imageTag")
+                .or_else(|| image.get("imageDigest"))
+                .and_then(Value::as_str)
+                .unwrap_or("unknown image");
+            let reason = failure
+                .get("failureReason")
+                .and_then(Value::as_str)
+                .unwrap_or("unknown reason");
+            let code = failure
+                .get("failureCode")
+                .and_then(Value::as_str)
+                .unwrap_or("unknown code");
+            Ok(format!("{id}: {code}: {reason}"))
+        })
+        .collect::<Result<Vec<_>, &str>>()?;
+    if failures.is_empty() {
+        Ok(())
+    } else {
+        Err(format!(
+            "ECR could not delete image(s): {}",
+            failures.join("; ")
+        ))
     }
 }
 

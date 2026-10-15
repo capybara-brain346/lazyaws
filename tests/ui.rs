@@ -1,10 +1,11 @@
 use std::time::Instant;
 
 use lazyaws::{
-    app::App,
+    app::{ActionDialog, App},
     config::{Config, SIDE_PANEL_WIDTH_DENOMINATOR, SIDE_PANEL_WIDTH_NUMERATOR},
     model::{Resource, Service, Snapshot},
-    ui,
+    operations::{AccountContext, Operation},
+    ui::{self, HitMap, MouseTarget},
 };
 use ratatui::{Terminal, backend::TestBackend, style::Color};
 
@@ -49,6 +50,40 @@ fn render(app: &App, config: &Config, width: u16, height: u16) -> (String, bool)
     let has_blue_list_row =
         (5..height).any(|y| (0..side_width).any(|x| buffer[(x, y)].bg == Color::Blue));
     (text, has_blue_list_row)
+}
+
+fn render_with_map(app: &App, config: &Config, width: u16, height: u16) -> (String, HitMap) {
+    let backend = TestBackend::new(width, height);
+    let mut terminal = Terminal::new(backend).unwrap();
+    let mut hit_map = HitMap::default();
+    terminal
+        .draw(|frame| {
+            hit_map = ui::draw_interactive(frame, app, config);
+        })
+        .unwrap();
+    let buffer = terminal.backend().buffer();
+    let text = (0..height)
+        .map(|y| {
+            (0..width)
+                .map(|x| buffer[(x, y)].symbol())
+                .collect::<String>()
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
+    (text, hit_map)
+}
+
+fn sample_operation(parameter: Option<&'static str>) -> Operation {
+    Operation {
+        label: "Stop instance",
+        service: "ec2",
+        name: "stop-instances",
+        input: serde_json::json!({"InstanceIds":["i-123"]}),
+        region: None,
+        target: "i-123".into(),
+        warning: "Stops the instance and can interrupt work.",
+        parameter,
+    }
 }
 
 #[test]
@@ -162,4 +197,234 @@ fn help_overlay_and_small_terminal_show_useful_text() {
     let (warning, _) = render(&app, &Config::default(), 30, 8);
     assert!(warning.contains("Terminal"));
     assert!(warning.contains("too small"));
+}
+
+#[test]
+fn hit_map_uses_tab_footer_and_visible_row_coordinates() {
+    let mut app = app_with_service(Service::Ec2);
+    app.snapshot.panels[0].items = (0..40)
+        .map(|index| Resource {
+            id: format!("i-{index}"),
+            label: format!("needle-{index}"),
+            summary: "running".into(),
+            detail: serde_json::json!({"name": format!("needle-{index}")}),
+        })
+        .collect();
+    app.snapshot.panels[0].error = Some("refresh failed".into());
+    app.filter = "needle-1".into();
+    app.selected[0] = 19;
+    app.focus = 1;
+
+    let (text, hit_map) = render_with_map(&app, &Config::default(), 120, 36);
+    assert!(text.contains("needle-19"));
+    assert!(!text.contains("needle-0"));
+    assert_eq!(
+        hit_map.target_at(10, 0),
+        Some(MouseTarget::Service(Service::Ec2))
+    );
+    assert_eq!(
+        hit_map.target_at(15, 0),
+        Some(MouseTarget::Service(Service::Ecs))
+    );
+    assert_eq!(hit_map.target_at(3, 35), Some(MouseTarget::OpenActions));
+
+    let (row, target) = hit_map
+        .regions
+        .iter()
+        .find(|(_, target)| {
+            *target
+                == MouseTarget::Row {
+                    panel: 0,
+                    focus: 1,
+                    index: 19,
+                }
+        })
+        .copied()
+        .expect("selected filtered row is clickable");
+    assert_eq!(hit_map.target_at(row.x, row.y), Some(target));
+}
+
+#[test]
+fn compact_layout_keeps_resource_rows_clickable() {
+    let mut app = app_with_service(Service::S3);
+    app.focus = 1;
+    app.snapshot.panels[0].items.push(sample_resource());
+
+    let (_, hit_map) = render_with_map(&app, &Config::default(), 60, 20);
+    let (row, target) = hit_map
+        .regions
+        .iter()
+        .find(|(_, target)| {
+            matches!(
+                target,
+                MouseTarget::Row {
+                    panel: 0,
+                    index: 0,
+                    ..
+                }
+            )
+        })
+        .copied()
+        .expect("compact layout row is clickable");
+    assert_eq!(
+        target,
+        MouseTarget::Row {
+            panel: 0,
+            focus: 1,
+            index: 0
+        }
+    );
+    assert_eq!(hit_map.target_at(row.x, row.y), Some(target));
+}
+
+#[test]
+fn account_header_shows_identity_or_failure_without_stale_identity() {
+    let mut app = app_with_service(Service::Ec2);
+    app.account = Some(Ok(AccountContext {
+        account: "123456789012".into(),
+        arn: "arn:aws:sts::123456789012:assumed-role/Team/read-only".into(),
+        user_id: "AROATEST:read-only".into(),
+    }));
+    let (text, _) = render_with_map(&app, &Config::default(), 60, 20);
+    assert!(text.contains("123456789012"));
+    assert!(text.contains("assumed-role/Team/read-only"));
+
+    app.focus = 0;
+    let (details, _) = render_with_map(&app, &Config::default(), 100, 30);
+    assert!(details.contains("arn:aws:sts::123456789012:assumed-role/Team/read-only"));
+    assert!(details.contains("AROATEST:read-only"));
+    assert!(!details.contains("AKIA"));
+
+    app.account = Some(Err("credentials expired".into()));
+    let (failed, _) = render_with_map(&app, &Config::default(), 100, 30);
+    assert!(failed.contains("Account: unavailable"));
+    assert!(failed.contains("credentials expired"));
+    assert!(!failed.contains("123456789012"));
+}
+
+#[test]
+fn action_dialog_shows_target_warning_command_and_click_targets_at_minimum_size() {
+    let mut app = app_with_service(Service::Ec2);
+    app.actions = Some(ActionDialog {
+        operations: vec![sample_operation(None)],
+        selected: 0,
+        confirming: true,
+        editing: false,
+        input: String::new(),
+        error: None,
+    });
+    app.account = Some(Ok(AccountContext {
+        account: "123456789012".into(),
+        arn: "arn:aws:iam::123456789012:user/dev".into(),
+        user_id: "AIDAEXAMPLE".into(),
+    }));
+    let config = Config {
+        profile: Some("prod".into()),
+        region: Some("eu-west-1".into()),
+        ..Config::default()
+    };
+
+    let (text, hit_map) = render_with_map(&app, &config, 60, 20);
+    assert!(text.contains("Stop instance"));
+    assert!(text.contains("i-123"));
+    assert!(text.contains("interrupt work"));
+    assert!(text.contains("123456789012"));
+    assert!(text.contains("prod"));
+    assert!(text.contains("eu-west-1"));
+    assert!(text.contains("stop-instances"));
+    assert!(text.contains("Run"));
+    assert!(text.contains("Cancel"));
+
+    for target in [MouseTarget::ConfirmAction, MouseTarget::CancelAction] {
+        let (area, _) = hit_map
+            .regions
+            .iter()
+            .find(|(_, region_target)| *region_target == target)
+            .copied()
+            .expect("dialog control is clickable");
+        assert_eq!(hit_map.target_at(area.x, area.y), Some(target));
+    }
+}
+
+#[test]
+fn executing_action_shows_wait_state_without_run_or_cancel_controls() {
+    let mut app = app_with_service(Service::Ec2);
+    app.actions = Some(ActionDialog {
+        operations: vec![sample_operation(None)],
+        selected: 0,
+        confirming: true,
+        editing: false,
+        input: String::new(),
+        error: None,
+    });
+    app.executing = true;
+
+    let (text, hit_map) = render_with_map(&app, &Config::default(), 60, 20);
+    assert!(text.contains("Running action"));
+    assert!(text.contains("wait for the result"));
+    assert!(!text.contains("[ Run ]"));
+    assert!(!text.contains("[ Cancel ]"));
+    assert!(!hit_map.regions.iter().any(|(_, target)| {
+        matches!(
+            target,
+            MouseTarget::ConfirmAction | MouseTarget::CancelAction
+        )
+    }));
+}
+
+#[test]
+fn action_menu_rows_are_clickable_at_minimum_size() {
+    let mut app = app_with_service(Service::Ec2);
+    let mut second = sample_operation(None);
+    second.label = "Reboot instance";
+    second.name = "reboot-instances";
+    app.actions = Some(ActionDialog {
+        operations: vec![sample_operation(None), second],
+        selected: 0,
+        confirming: false,
+        editing: false,
+        input: String::new(),
+        error: None,
+    });
+
+    let (text, hit_map) = render_with_map(&app, &Config::default(), 60, 20);
+    assert!(text.contains("Choose action"));
+    assert!(text.contains("Stop instance"));
+    assert!(text.contains("Reboot instance"));
+    let (area, target) = hit_map
+        .regions
+        .iter()
+        .find(|(_, target)| *target == MouseTarget::ChooseAction(1))
+        .copied()
+        .expect("second action is clickable");
+    assert_eq!(hit_map.target_at(area.x, area.y), Some(target));
+}
+
+#[test]
+fn parameter_dialog_shows_input_error_and_accept_button() {
+    let mut app = app_with_service(Service::S3);
+    app.actions = Some(ActionDialog {
+        operations: vec![sample_operation(Some("Upload file path"))],
+        selected: 0,
+        confirming: false,
+        editing: true,
+        input: String::new(),
+        error: Some("Upload file path is required".into()),
+    });
+
+    let (text, hit_map) = render_with_map(&app, &Config::default(), 60, 20);
+    assert!(text.contains("Upload file path"));
+    assert!(text.contains("Upload file path is required"));
+    assert!(text.contains("Accept"));
+    assert!(!text.contains("[ Run ]"));
+    let (area, _) = hit_map
+        .regions
+        .iter()
+        .find(|(_, target)| *target == MouseTarget::ConfirmAction)
+        .copied()
+        .expect("accept control is clickable");
+    assert_eq!(
+        hit_map.target_at(area.x, area.y),
+        Some(MouseTarget::ConfirmAction)
+    );
 }

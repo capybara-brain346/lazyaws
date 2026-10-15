@@ -9,7 +9,11 @@ use std::{
     time::Instant,
 };
 
-use crossterm::event::{self, Event};
+use crossterm::{
+    event::{self, DisableMouseCapture, EnableMouseCapture, Event},
+    execute,
+};
+use serde_json::{Value, json};
 
 use crate::{
     app::{Action, App},
@@ -17,25 +21,47 @@ use crate::{
     config::{Config, EVENT_WAIT, LOG_CAPACITY, POLL_INTERVAL},
     demo,
     model::{Service, Snapshot},
+    operations::{AccountContext, Operation},
     ui,
 };
 
 struct Request {
     generation: u64,
-    service: Service,
-    selected: Option<String>,
     cancel: Arc<AtomicBool>,
+    kind: RequestKind,
 }
 
-struct Response {
-    generation: u64,
-    result: Result<Snapshot, String>,
+enum RequestKind {
+    Refresh {
+        service: Service,
+        selected: Option<String>,
+    },
+    Execute {
+        operation: Operation,
+        value: String,
+    },
+}
+
+enum Response {
+    Refresh {
+        generation: u64,
+        result: Result<Box<Snapshot>, String>,
+        identity: Result<AccountContext, String>,
+        logs: Vec<String>,
+    },
+    Execute {
+        operation: Operation,
+        result: Result<Value, String>,
+        logs: Vec<String>,
+        demo: bool,
+    },
 }
 
 struct Worker {
     requests: Option<Sender<Request>>,
     responses: Receiver<Response>,
     cancel: Arc<AtomicBool>,
+    operation_cancel: Option<Arc<AtomicBool>>,
     thread: Option<JoinHandle<()>>,
 }
 
@@ -48,30 +74,72 @@ impl Worker {
         let thread = thread::Builder::new()
             .name("aws-cli".into())
             .spawn(move || {
-                while let Ok(mut request) = incoming.recv() {
-                    // Only the newest selection needs an AWS request.
-                    for newer in incoming.try_iter() {
-                        request = newer;
+                let mut pending = None;
+                while let Some(mut request) = pending.take().or_else(|| incoming.recv().ok()) {
+                    if matches!(request.kind, RequestKind::Refresh { .. }) {
+                        while let Ok(newer) = incoming.try_recv() {
+                            match &newer.kind {
+                                RequestKind::Refresh { .. } => {
+                                    request = newer;
+                                }
+                                RequestKind::Execute { .. } => {
+                                    pending = Some(newer);
+                                    break;
+                                }
+                            }
+                        }
                     }
 
                     if request.cancel.load(Ordering::Relaxed) {
                         continue;
                     }
 
-                    let result = if config.demo {
-                        Ok(demo::snapshot(request.service, request.selected.as_deref()))
-                    } else {
-                        AwsCli::new(config.clone(), Arc::clone(&request.cancel))
-                            .fetch(request.service, request.selected.as_deref())
+                    let response = match request.kind {
+                        RequestKind::Refresh { service, selected } => {
+                            let mut logs = Vec::new();
+                            let client = AwsCli::new(config.clone(), Arc::clone(&request.cancel));
+                            let account = if config.demo {
+                                Ok(demo_account())
+                            } else {
+                                client.identity(&mut logs)
+                            };
+                            let result = if config.demo {
+                                Ok(demo::snapshot(service, selected.as_deref()))
+                            } else {
+                                client.fetch(service, selected.as_deref())
+                            };
+                            Response::Refresh {
+                                generation: request.generation,
+                                result: result.map(Box::new),
+                                identity: account,
+                                logs,
+                            }
+                        }
+                        RequestKind::Execute { operation, value } => {
+                            let mut logs = Vec::new();
+                            let result = if config.demo {
+                                operation.args(&value).map(|_| {
+                                    json!({
+                                        "simulated": true,
+                                        "service": operation.service,
+                                        "operation": operation.name,
+                                        "target": operation.target,
+                                    })
+                                })
+                            } else {
+                                AwsCli::new(config.clone(), Arc::clone(&request.cancel))
+                                    .execute(&operation, &value, &mut logs)
+                            };
+                            Response::Execute {
+                                operation,
+                                result,
+                                logs,
+                                demo: config.demo,
+                            }
+                        }
                     };
 
-                    if outgoing
-                        .send(Response {
-                            generation: request.generation,
-                            result,
-                        })
-                        .is_err()
-                    {
+                    if outgoing.send(response).is_err() {
                         break;
                     }
                 }
@@ -81,20 +149,25 @@ impl Worker {
             requests: Some(requests),
             responses,
             cancel,
+            operation_cancel: None,
             thread: Some(thread),
         })
     }
 
     fn request(&mut self, app: &mut App, generation: &mut u64) -> io::Result<()> {
-        self.cancel.store(true, Ordering::Relaxed);
+        if self.operation_cancel.is_none() {
+            self.cancel.store(true, Ordering::Relaxed);
+        }
         self.cancel = Arc::new(AtomicBool::new(false));
         *generation = generation.wrapping_add(1);
 
         let request = Request {
             generation: *generation,
-            service: app.service,
-            selected: app.selected_primary().map(String::from),
             cancel: Arc::clone(&self.cancel),
+            kind: RequestKind::Refresh {
+                service: app.service,
+                selected: app.selected_primary().map(String::from),
+            },
         };
 
         self.requests
@@ -105,11 +178,43 @@ impl Worker {
         app.loading = true;
         Ok(())
     }
+
+    fn execute(
+        &mut self,
+        operation: Operation,
+        value: String,
+        generation: &mut u64,
+    ) -> io::Result<()> {
+        if self.operation_cancel.is_some() {
+            return Err(io::Error::other("an AWS operation is already running"));
+        }
+        self.cancel.store(true, Ordering::Relaxed);
+        *generation = generation.wrapping_add(1);
+        let operation_cancel = Arc::new(AtomicBool::new(false));
+        self.operation_cancel = Some(Arc::clone(&operation_cancel));
+        let request = Request {
+            generation: *generation,
+            cancel: operation_cancel,
+            kind: RequestKind::Execute { operation, value },
+        };
+        self.requests
+            .as_ref()
+            .ok_or_else(|| io::Error::other("CLI worker stopped"))?
+            .send(request)
+            .map_err(|_| io::Error::other("CLI worker stopped"))
+    }
+
+    fn operation_finished(&mut self) {
+        self.operation_cancel = None;
+    }
 }
 
 impl Drop for Worker {
     fn drop(&mut self) {
         self.cancel.store(true, Ordering::Relaxed);
+        if let Some(cancel) = &self.operation_cancel {
+            cancel.store(true, Ordering::Relaxed);
+        }
         self.requests.take();
 
         if let Some(thread) = self.thread.take() {
@@ -118,10 +223,15 @@ impl Drop for Worker {
     }
 }
 
-struct TerminalGuard;
+struct TerminalGuard {
+    mouse_capture: bool,
+}
 
 impl Drop for TerminalGuard {
     fn drop(&mut self) {
+        if self.mouse_capture {
+            let _ = execute!(io::stdout(), DisableMouseCapture);
+        }
         ratatui::restore();
     }
 }
@@ -134,8 +244,12 @@ pub fn run(config: Config) -> io::Result<()> {
     }
 
     let mut worker = Worker::start(config.clone())?;
-    let _guard = TerminalGuard;
+    let mut guard = TerminalGuard {
+        mouse_capture: false,
+    };
     let mut terminal = ratatui::try_init()?;
+    guard.mouse_capture = true;
+    execute!(io::stdout(), EnableMouseCapture)?;
     let mut app = App::new();
     let mut generation = 0;
     worker.request(&mut app, &mut generation)?;
@@ -143,39 +257,75 @@ pub fn run(config: Config) -> io::Result<()> {
 
     loop {
         while let Ok(response) = worker.responses.try_recv() {
-            if response.generation != generation {
-                continue;
-            }
-
-            match response.result {
-                Ok(snapshot) => app.apply(snapshot),
-                Err(error) => {
-                    app.loading = false;
-                    app.error = Some(error.clone());
-                    app.logs.push_back(error);
-
-                    while app.logs.len() > LOG_CAPACITY {
-                        app.logs.pop_front();
+            match response {
+                Response::Refresh {
+                    generation: response_generation,
+                    result,
+                    identity,
+                    logs,
+                } => {
+                    append_logs(&mut app, logs);
+                    if response_generation != generation {
+                        continue;
                     }
+                    app.account = Some(identity);
+
+                    match result {
+                        Ok(snapshot) => app.apply(*snapshot),
+                        Err(error) => {
+                            app.loading = false;
+                            app.error = Some(error.clone());
+                            append_logs(&mut app, [error]);
+                        }
+                    }
+                }
+                Response::Execute {
+                    operation,
+                    result,
+                    logs,
+                    demo,
+                } => {
+                    let output = operation_output(&operation, &result, demo);
+                    worker.operation_finished();
+                    app.executing = false;
+                    app.actions = None;
+                    app.operation_output = Some(output);
+                    append_logs(&mut app, logs);
+                    append_logs(&mut app, [operation_log(&operation, &result, demo)]);
+                    worker.request(&mut app, &mut generation)?;
+                    last_request = Instant::now();
                 }
             }
         }
 
-        if !app.loading && last_request.elapsed() >= POLL_INTERVAL {
+        if !app.loading
+            && app.actions.is_none()
+            && !app.executing
+            && last_request.elapsed() >= POLL_INTERVAL
+        {
             worker.request(&mut app, &mut generation)?;
             last_request = Instant::now();
         }
 
-        terminal.draw(|frame| ui::draw(frame, &app, &config))?;
+        let mut hit_map = ui::HitMap::default();
+        terminal.draw(|frame| {
+            hit_map = ui::draw_interactive(frame, &app, &config);
+        })?;
 
-        if event::poll(EVENT_WAIT)?
-            && let Event::Key(key) = event::read()?
-        {
-            match app.handle_key(key) {
+        if event::poll(EVENT_WAIT)? {
+            let action = match event::read()? {
+                Event::Key(key) => app.handle_key(key),
+                Event::Mouse(mouse) => app.handle_mouse(mouse, &hit_map),
+                _ => Action::None,
+            };
+            match action {
                 Action::Quit => break,
                 Action::Refresh => {
                     worker.request(&mut app, &mut generation)?;
                     last_request = Instant::now();
+                }
+                Action::Execute(operation, value) => {
+                    worker.execute(operation, value, &mut generation)?;
                 }
                 Action::None => {}
             }
@@ -183,6 +333,61 @@ pub fn run(config: Config) -> io::Result<()> {
     }
 
     Ok(())
+}
+
+fn demo_account() -> AccountContext {
+    AccountContext {
+        account: "123456789012".into(),
+        arn: "arn:aws:iam::123456789012:user/lazyaws-demo".into(),
+        user_id: "AIDAEXAMPLEDEMO".into(),
+    }
+}
+
+fn append_logs(app: &mut App, lines: impl IntoIterator<Item = String>) {
+    app.logs.extend(lines);
+    while app.logs.len() > LOG_CAPACITY {
+        app.logs.pop_front();
+    }
+}
+
+fn operation_output(operation: &Operation, result: &Result<Value, String>, demo: bool) -> String {
+    let mut lines = Vec::new();
+    if demo {
+        lines.push("Demo mode: no AWS command was run.".to_owned());
+    }
+    match result {
+        Ok(value) => {
+            lines.push(format!(
+                "{} completed for {}.",
+                operation.label, operation.target
+            ));
+            if let Ok(value) = serde_json::to_string_pretty(value) {
+                lines.extend(value.lines().map(str::to_owned));
+            }
+        }
+        Err(error) => {
+            lines.push(format!("{} failed: {error}", operation.label));
+            if error.to_ascii_lowercase().contains("timed out") {
+                lines.push("The outcome may be unknown. Refresh before retry.".into());
+            }
+        }
+    }
+    lines.join("\n")
+}
+
+fn operation_log(operation: &Operation, result: &Result<Value, String>, demo: bool) -> String {
+    let mode = if demo { "[demo; no AWS command] " } else { "" };
+    match result {
+        Ok(_) => format!(
+            "{mode}{} completed for {}",
+            operation.label, operation.target
+        ),
+        Err(error) if error.to_ascii_lowercase().contains("timed out") => format!(
+            "{mode}{} timed out for {}; outcome may be unknown, refresh before retry",
+            operation.label, operation.target
+        ),
+        Err(error) => format!("{mode}{} failed: {error}", operation.label),
+    }
 }
 
 #[cfg(test)]
@@ -199,9 +404,18 @@ mod tests {
         let mut app = App::new();
         let mut generation = 0;
         worker.request(&mut app, &mut generation).unwrap();
-        let response = worker.responses.recv_timeout(POLL_INTERVAL).unwrap();
-        assert_eq!(response.generation, generation);
-        let snapshot = response.result.unwrap();
+        let Response::Refresh {
+            generation: response_generation,
+            result,
+            identity,
+            ..
+        } = worker.responses.recv_timeout(POLL_INTERVAL).unwrap()
+        else {
+            panic!("expected refresh response");
+        };
+        assert_eq!(response_generation, generation);
+        assert!(identity.is_ok());
+        let snapshot = result.unwrap();
         assert_eq!(snapshot.service, Service::Ec2);
         assert!(!snapshot.panels[0].items.is_empty());
         drop(worker);
@@ -223,10 +437,63 @@ mod tests {
         }
 
         loop {
-            let response = worker.responses.recv_timeout(POLL_INTERVAL).unwrap();
-            if response.generation == generation {
-                assert_eq!(response.result.unwrap().service, Service::S3);
-                break;
+            match worker.responses.recv_timeout(POLL_INTERVAL).unwrap() {
+                Response::Refresh {
+                    generation: response_generation,
+                    result,
+                    ..
+                } if response_generation == generation => {
+                    assert_eq!(result.unwrap().service, Service::S3);
+                    break;
+                }
+                Response::Execute { .. } => panic!("unexpected operation response"),
+                Response::Refresh { .. } => {}
+            }
+        }
+    }
+
+    #[test]
+    fn demo_operation_survives_a_queued_refresh() {
+        let mut worker = Worker::start(Config {
+            demo: true,
+            ..Config::default()
+        })
+        .unwrap();
+        let mut app = App::new();
+        let mut generation = 0;
+        worker.request(&mut app, &mut generation).unwrap();
+        let operation = Operation {
+            label: "Stop instance",
+            service: "ec2",
+            name: "stop-instances",
+            input: json!({"InstanceIds":["i-example"]}),
+            region: None,
+            target: "i-example".into(),
+            warning: "Stops the instance.",
+            parameter: None,
+        };
+        worker
+            .execute(operation.clone(), String::new(), &mut generation)
+            .unwrap();
+        let operation_cancel = Arc::clone(worker.operation_cancel.as_ref().unwrap());
+
+        worker.request(&mut app, &mut generation).unwrap();
+        assert!(!operation_cancel.load(Ordering::Relaxed));
+
+        loop {
+            match worker.responses.recv_timeout(POLL_INTERVAL).unwrap() {
+                Response::Execute {
+                    operation: completed,
+                    result,
+                    demo,
+                    ..
+                } => {
+                    assert_eq!(completed, operation);
+                    assert!(demo);
+                    assert_eq!(result.unwrap()["simulated"], true);
+                    break;
+                }
+                Response::Refresh { .. } => {}
             }
         }
     }

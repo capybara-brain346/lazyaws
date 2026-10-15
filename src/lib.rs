@@ -5,5 +5,6 @@ pub mod aws;
 pub mod config;
 pub mod demo;
 pub mod model;
+pub mod operations;
 pub mod runtime;
 pub mod ui;

@@ -6,24 +6,35 @@ use ratatui::{
     widgets::{Block, BorderType, Borders, Paragraph, Wrap},
 };
 
+mod actions;
 mod chrome;
+mod details;
+mod mouse;
+
+pub use mouse::{HitMap, MouseTarget};
 
 use chrome::{draw_help, draw_key_bar, pane_block, safe_text};
+use details::draw_details_and_log;
 
 use crate::{
     app::App,
     config::{
-        self, COMMAND_LOG_HEIGHT, Config, FOOTER_HEIGHT, MIN_HEIGHT, MIN_WIDTH, POLL_INTERVAL,
-        SERVICE_BAR_HEIGHT, STATUS_PANEL_HEIGHT,
+        self, Config, FOOTER_HEIGHT, MIN_HEIGHT, MIN_WIDTH, POLL_INTERVAL, SERVICE_BAR_HEIGHT,
+        STATUS_PANEL_HEIGHT,
     },
     model::{Resource, Service},
 };
 
 pub fn draw(frame: &mut Frame, app: &App, config: &Config) {
+    let _ = draw_interactive(frame, app, config);
+}
+
+pub fn draw_interactive(frame: &mut Frame, app: &App, config: &Config) -> HitMap {
+    let mut hit_map = HitMap::default();
     let area = frame.area();
     if area.width < MIN_WIDTH || area.height < MIN_HEIGHT {
         draw_too_small(frame, area);
-        return;
+        return hit_map;
     }
 
     let layout = Layout::default()
@@ -35,7 +46,7 @@ pub fn draw(frame: &mut Frame, app: &App, config: &Config) {
         ])
         .split(area);
 
-    draw_services(frame, layout[0], app);
+    draw_services(frame, layout[0], app, &mut hit_map);
 
     let columns = Layout::default()
         .direction(Direction::Horizontal)
@@ -49,13 +60,37 @@ pub fn draw(frame: &mut Frame, app: &App, config: &Config) {
         ])
         .split(layout[1]);
 
-    draw_side_panels(frame, columns[0], app, config);
-    draw_details_and_log(frame, columns[2], app);
+    let mut pane_regions = Vec::new();
+    let mut row_regions = Vec::new();
+    draw_side_panels(
+        frame,
+        columns[0],
+        app,
+        config,
+        &mut pane_regions,
+        &mut row_regions,
+    );
+    draw_details_and_log(frame, columns[2], app, config, &mut pane_regions);
     draw_key_bar(frame, layout[2]);
+    hit_map.regions.extend(pane_regions);
+    hit_map.regions.extend(row_regions);
+    hit_map.regions.push((
+        Rect::new(
+            layout[2].x.saturating_add(1),
+            layout[2].y,
+            9.min(layout[2].width.saturating_sub(1)),
+            1.min(layout[2].height),
+        ),
+        MouseTarget::OpenActions,
+    ));
 
-    if app.help {
+    if let Some(dialog) = &app.actions {
+        actions::draw_action_dialog(frame, area, app, dialog, config, &mut hit_map);
+    } else if app.help {
         draw_help(frame, area);
     }
+
+    hit_map
 }
 
 fn draw_too_small(frame: &mut Frame, area: Rect) {
@@ -72,7 +107,7 @@ fn draw_too_small(frame: &mut Frame, area: Rect) {
     frame.render_widget(warning, area);
 }
 
-fn draw_services(frame: &mut Frame, area: Rect, app: &App) {
+fn draw_services(frame: &mut Frame, area: Rect, app: &App, hit_map: &mut HitMap) {
     let mut spans = vec![Span::styled(
         " lazyaws ",
         Style::default()
@@ -80,8 +115,10 @@ fn draw_services(frame: &mut Frame, area: Rect, app: &App) {
             .add_modifier(Modifier::BOLD),
     )];
 
+    let mut tab_x = area.x.saturating_add(9);
     for service in Service::ALL {
         let selected = service == app.service;
+        let width = service.name().len() as u16 + 2;
         spans.push(Span::styled(
             format!(" {} ", service.name()),
             if selected {
@@ -93,13 +130,32 @@ fn draw_services(frame: &mut Frame, area: Rect, app: &App) {
                 Style::default().fg(config::TITLE_COLOR)
             },
         ));
+        hit_map.regions.push((
+            Rect::new(
+                tab_x,
+                area.y,
+                width.min(area.right().saturating_sub(tab_x)),
+                1,
+            ),
+            MouseTarget::Service(service),
+        ));
+        tab_x = tab_x.saturating_add(width);
     }
 
     spans.push(Span::styled(
         "  [/] switch service",
         Style::default().fg(config::MUTED_COLOR),
     ));
-    let mut lines = vec![Line::from(spans)];
+    let account = match &app.account {
+        Some(Ok(account)) => format!(
+            " Account: {} · {}",
+            safe_text(&account.account),
+            safe_text(short_principal(&account.arn))
+        ),
+        Some(Err(error)) => format!(" Account: unavailable · {}", safe_text(error)),
+        None => " Account: loading".into(),
+    };
+    let mut lines = vec![Line::from(spans), Line::from(account)];
     if app.filtering || !app.filter.is_empty() {
         let label = if app.filtering {
             " Filter: "
@@ -118,11 +174,24 @@ fn draw_services(frame: &mut Frame, area: Rect, app: &App) {
             ));
         }
         lines.push(Line::from(filter));
+    } else {
+        lines.push(Line::default());
     }
     frame.render_widget(Paragraph::new(Text::from(lines)), area);
 }
 
-fn draw_side_panels(frame: &mut Frame, area: Rect, app: &App, config: &Config) {
+fn short_principal(arn: &str) -> &str {
+    arn.splitn(6, ':').nth(5).unwrap_or(arn)
+}
+
+fn draw_side_panels(
+    frame: &mut Frame,
+    area: Rect,
+    app: &App,
+    config: &Config,
+    pane_regions: &mut Vec<(Rect, MouseTarget)>,
+    row_regions: &mut Vec<(Rect, MouseTarget)>,
+) {
     let constraints = if area.height >= config::NORMAL_LAYOUT_MIN_HEIGHT {
         vec![
             Constraint::Length(STATUS_PANEL_HEIGHT),
@@ -157,13 +226,26 @@ fn draw_side_panels(frame: &mut Frame, area: Rect, app: &App, config: &Config) {
         .constraints(constraints)
         .split(area);
 
-    draw_status(frame, areas[0], app, config);
+    draw_status(frame, areas[0], app, config, pane_regions);
     for panel_index in 0..4 {
-        draw_resource_panel(frame, areas[panel_index + 1], app, panel_index + 1);
+        draw_resource_panel(
+            frame,
+            areas[panel_index + 1],
+            app,
+            panel_index + 1,
+            pane_regions,
+            row_regions,
+        );
     }
 }
 
-fn draw_status(frame: &mut Frame, area: Rect, app: &App, config: &Config) {
+fn draw_status(
+    frame: &mut Frame,
+    area: Rect,
+    app: &App,
+    config: &Config,
+    pane_regions: &mut Vec<(Rect, MouseTarget)>,
+) {
     let profile = config
         .profile
         .as_deref()
@@ -210,9 +292,17 @@ fn draw_status(frame: &mut Frame, area: Rect, app: &App, config: &Config) {
         Paragraph::new(Line::from(spans)).block(pane_block("[1] Status", app.focus == 0)),
         area,
     );
+    pane_regions.push((area, MouseTarget::Pane(0)));
 }
 
-fn draw_resource_panel(frame: &mut Frame, area: Rect, app: &App, panel: usize) {
+fn draw_resource_panel(
+    frame: &mut Frame,
+    area: Rect,
+    app: &App,
+    panel: usize,
+    pane_regions: &mut Vec<(Rect, MouseTarget)>,
+    row_regions: &mut Vec<(Rect, MouseTarget)>,
+) {
     let data = &app.snapshot.panels[panel - 1];
     let visible = app.visible_indices(panel);
     let title = format!(
@@ -257,15 +347,7 @@ fn draw_resource_panel(frame: &mut Frame, area: Rect, app: &App, panel: usize) {
 
     let error_rows = if data.error.is_some() { 1 } else { 0 };
     let list_rows = usize::from(area.height.saturating_sub(2)).saturating_sub(error_rows);
-    let scroll = visible
-        .iter()
-        .position(|index| *index == app.selected[panel - 1])
-        .map(|selected_row| {
-            let item_scroll = selected_row.saturating_sub(list_rows.saturating_sub(1));
-            item_scroll + if item_scroll > 0 { error_rows } else { 0 }
-        })
-        .unwrap_or(0)
-        .min(usize::from(u16::MAX)) as u16;
+    let scroll = resource_scroll(&visible, app.selected[panel - 1], list_rows, error_rows);
 
     frame.render_widget(
         Paragraph::new(Text::from(lines))
@@ -273,6 +355,43 @@ fn draw_resource_panel(frame: &mut Frame, area: Rect, app: &App, panel: usize) {
             .block(pane_block(&title, app.focus == panel)),
         area,
     );
+
+    pane_regions.push((area, MouseTarget::Pane(panel)));
+    let content = Rect::new(
+        area.x.saturating_add(1),
+        area.y.saturating_add(1),
+        area.width.saturating_sub(2),
+        area.height.saturating_sub(2),
+    );
+    for (row, index) in visible.into_iter().enumerate() {
+        let line = row
+            .saturating_add(error_rows)
+            .saturating_sub(usize::from(scroll));
+        if row + error_rows < usize::from(scroll) || line >= usize::from(content.height) {
+            continue;
+        }
+        let y = content.y.saturating_add(line as u16);
+        row_regions.push((
+            Rect::new(content.x, y, content.width, 1),
+            MouseTarget::Row {
+                panel: panel - 1,
+                focus: panel,
+                index,
+            },
+        ));
+    }
+}
+
+fn resource_scroll(visible: &[usize], selected: usize, list_rows: usize, error_rows: usize) -> u16 {
+    visible
+        .iter()
+        .position(|index| *index == selected)
+        .map(|selected_row| {
+            let item_scroll = selected_row.saturating_sub(list_rows.saturating_sub(1));
+            item_scroll + if item_scroll > 0 { error_rows } else { 0 }
+        })
+        .unwrap_or(0)
+        .min(usize::from(u16::MAX)) as u16
 }
 
 fn resource_line(resource: &Resource, selected: bool, focused: bool) -> Line<'static> {
@@ -300,125 +419,4 @@ fn resource_line(resource: &Resource, selected: bool, focused: bool) -> Line<'st
         Span::styled("  ", style),
         Span::styled(safe_text(&resource.summary), style),
     ])
-}
-
-fn draw_details_and_log(frame: &mut Frame, area: Rect, app: &App) {
-    let log_height = if app.focus == 6 {
-        area.height
-    } else if frame.area().height < config::FULL_LOG_MIN_HEIGHT {
-        config::COMPACT_LOG_HEIGHT
-    } else {
-        COMMAND_LOG_HEIGHT.saturating_add(2)
-    }
-    .min(area.height);
-    let parts = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints([Constraint::Min(0), Constraint::Length(log_height)])
-        .split(area);
-
-    draw_details(frame, parts[0], app);
-    draw_logs(frame, parts[1], app);
-}
-
-fn draw_details(frame: &mut Frame, area: Rect, app: &App) {
-    let stale = app.error.is_some();
-    let title = if stale {
-        "[0] Details • stale"
-    } else {
-        "[0] Details"
-    };
-    let mut lines = Vec::new();
-
-    if let Some(error) = &app.error {
-        lines.push(Line::from(Span::styled(
-            format!("Refresh failed; showing last data: {}", safe_text(error)),
-            Style::default()
-                .fg(config::ERROR_COLOR)
-                .add_modifier(Modifier::BOLD),
-        )));
-    }
-
-    let selected = app
-        .selected_resource()
-        .or_else(|| app.snapshot.panels[0].items.get(app.selected[0]));
-    if let Some(resource) = selected {
-        let json = serde_json::to_string_pretty(&resource.detail)
-            .unwrap_or_else(|error| format!("Could not format resource: {error}"));
-        lines.extend(json.lines().map(json_line));
-    } else {
-        lines.push(Line::from(Span::styled(
-            if app.loading {
-                "Waiting for AWS data…"
-            } else {
-                "Select a resource to view its JSON."
-            },
-            Style::default().fg(config::MUTED_COLOR),
-        )));
-    }
-
-    let max_scroll = lines
-        .len()
-        .saturating_sub(usize::from(area.height.saturating_sub(2)))
-        .min(usize::from(u16::MAX)) as u16;
-    let scroll = app.detail_scroll.min(max_scroll);
-
-    frame.render_widget(
-        Paragraph::new(Text::from(lines))
-            .scroll((scroll, 0))
-            .block(pane_block(title, app.focus == 5)),
-        area,
-    );
-}
-
-fn json_line(line: &str) -> Line<'static> {
-    let (key, value) = match line.split_once(": ") {
-        Some((key, value)) => (
-            Some(Span::styled(
-                format!("{key}: "),
-                Style::default().fg(config::JSON_KEY_COLOR),
-            )),
-            value,
-        ),
-        None => (None, line),
-    };
-    let value_style = match value.trim_start().chars().next() {
-        Some('"') => config::JSON_STRING_COLOR,
-        Some('t' | 'f' | 'n') => config::JSON_LITERAL_COLOR,
-        Some('0'..='9' | '-') => config::JSON_NUMBER_COLOR,
-        _ => config::MUTED_COLOR,
-    };
-    let mut spans = Vec::with_capacity(2);
-    if let Some(key) = key {
-        spans.push(key);
-    }
-    spans.push(Span::styled(
-        value.to_owned(),
-        Style::default().fg(value_style),
-    ));
-    Line::from(spans)
-}
-
-fn draw_logs(frame: &mut Frame, area: Rect, app: &App) {
-    let title = format!("[6] Command log ({})", app.logs.len());
-    let visible_lines = usize::from(area.height.saturating_sub(2));
-    let start = app.logs.len().saturating_sub(visible_lines);
-    let lines = app
-        .logs
-        .iter()
-        .skip(start)
-        .map(|entry| Line::from(safe_text(entry)))
-        .collect::<Vec<_>>();
-    let lines = if lines.is_empty() {
-        vec![Line::from(Span::styled(
-            "No commands yet",
-            Style::default().fg(config::MUTED_COLOR),
-        ))]
-    } else {
-        lines
-    };
-
-    frame.render_widget(
-        Paragraph::new(Text::from(lines)).block(pane_block(&title, app.focus == 6)),
-        area,
-    );
 }

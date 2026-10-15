@@ -1,18 +1,16 @@
 use std::{collections::VecDeque, time::Instant};
 
-use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
-
 use crate::{
-    config::{DETAIL_SCROLL_STEP, LOG_CAPACITY},
+    config::LOG_CAPACITY,
     model::{Resource, Service, Snapshot},
+    operations::AccountContext,
 };
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum Action {
-    None,
-    Quit,
-    Refresh,
-}
+mod actions;
+mod input;
+
+pub use actions::ActionDialog;
+pub use input::Action;
 
 #[derive(Clone, Debug, Default)]
 struct ServiceState {
@@ -35,6 +33,10 @@ pub struct App {
     pub error: Option<String>,
     pub logs: VecDeque<String>,
     pub last_updated: Option<Instant>,
+    pub actions: Option<ActionDialog>,
+    pub executing: bool,
+    pub account: Option<Result<AccountContext, String>>,
+    pub operation_output: Option<String>,
     service_states: [ServiceState; 4],
     detail_panel: usize,
     filter_panel: usize,
@@ -62,113 +64,13 @@ impl App {
             error: None,
             logs: VecDeque::new(),
             last_updated: None,
+            actions: None,
+            executing: false,
+            account: None,
+            operation_output: None,
             service_states: std::array::from_fn(|_| ServiceState::default()),
             detail_panel: 0,
             filter_panel: 0,
-        }
-    }
-
-    pub fn handle_key(&mut self, key: KeyEvent) -> Action {
-        if key.kind == KeyEventKind::Release {
-            return Action::None;
-        }
-
-        if key.code == KeyCode::Char('c') && key.modifiers.contains(KeyModifiers::CONTROL) {
-            return Action::Quit;
-        }
-
-        if self.filtering {
-            return self.handle_filter_key(key);
-        }
-
-        match key.code {
-            KeyCode::Char('q') => Action::Quit,
-            KeyCode::Char('r') => {
-                self.loading = true;
-                Action::Refresh
-            }
-            KeyCode::Char('[') => self.change_service(-1),
-            KeyCode::Char(']') => self.change_service(1),
-            KeyCode::Left if key.modifiers.contains(KeyModifiers::SHIFT) => self.change_service(-1),
-            KeyCode::Right if key.modifiers.contains(KeyModifiers::SHIFT) => self.change_service(1),
-            KeyCode::Char('?') => {
-                self.help = !self.help;
-                Action::None
-            }
-            KeyCode::Char('/') => {
-                if (1..=4).contains(&self.focus) {
-                    self.filter.clear();
-                    self.filter_panel = self.focus - 1;
-                    self.save_current_service_state();
-                    self.filtering = true;
-                }
-                Action::None
-            }
-            KeyCode::Enter => {
-                if (1..=4).contains(&self.focus) {
-                    self.detail_panel = self.focus - 1;
-                    self.detail_scroll = 0;
-                    self.focus = 5;
-                }
-                Action::None
-            }
-            KeyCode::Esc => {
-                if self.help {
-                    self.help = false;
-                } else if self.focus == 5 {
-                    self.focus = self.detail_panel + 1;
-                    self.detail_scroll = 0;
-                } else {
-                    self.focus = 0;
-                }
-                Action::None
-            }
-            KeyCode::Tab => {
-                self.cycle_panel(1);
-                Action::None
-            }
-            KeyCode::BackTab => {
-                self.cycle_panel(-1);
-                Action::None
-            }
-            KeyCode::Char('h') | KeyCode::Left => {
-                self.cycle_panel(-1);
-                Action::None
-            }
-            KeyCode::Char('l') | KeyCode::Right => {
-                self.cycle_panel(1);
-                Action::None
-            }
-            KeyCode::Char('j') | KeyCode::Down => self.move_selection(1),
-            KeyCode::Char('k') | KeyCode::Up => self.move_selection(-1),
-            KeyCode::Char('1') => {
-                self.focus = 0;
-                Action::None
-            }
-            KeyCode::Char(character @ '2'..='5') => {
-                self.focus = character as usize - '1' as usize;
-                Action::None
-            }
-            KeyCode::Char('0') => {
-                if (1..=4).contains(&self.focus) {
-                    self.detail_panel = self.focus - 1;
-                }
-                self.focus = 5;
-                Action::None
-            }
-            KeyCode::Char('6') => {
-                self.focus = 6;
-                Action::None
-            }
-            KeyCode::PageUp if self.focus == 5 => {
-                self.detail_scroll = self.detail_scroll.saturating_sub(DETAIL_SCROLL_STEP);
-                Action::None
-            }
-            KeyCode::PageDown if self.focus == 5 => {
-                self.detail_scroll = self.detail_scroll.saturating_add(DETAIL_SCROLL_STEP);
-                Action::None
-            }
-            _ => Action::None,
         }
     }
 
@@ -315,125 +217,12 @@ impl App {
             .unwrap_or_else(|| self.service.name().to_owned())
     }
 
-    fn handle_filter_key(&mut self, key: KeyEvent) -> Action {
-        match key.code {
-            KeyCode::Enter => self.filtering = false,
-            KeyCode::Esc => {
-                self.filter.clear();
-                self.filtering = false;
-                self.save_current_service_state();
-            }
-            KeyCode::Backspace => {
-                self.filter.pop();
-                return self.normalize_filtered_selection();
-            }
-            KeyCode::Char(character) => {
-                self.filter.push(character);
-                return self.normalize_filtered_selection();
-            }
-            _ => {}
-        }
-        Action::None
-    }
-
-    fn change_service(&mut self, delta: isize) -> Action {
-        let target = (self.service.index() as isize + delta).rem_euclid(Service::ALL.len() as isize)
-            as usize;
-        let service = Service::ALL[target];
-        if service == self.service {
-            return Action::None;
-        }
-
-        self.save_current_service_state();
-        self.service = service;
-        let state = self.service_states[target].clone();
-        self.selected = state.selected;
-        self.filter = state.filter;
-        self.filter_panel = state.filter_panel;
-        self.filtering = false;
-        self.snapshot = Snapshot::empty(service);
-        self.focus = 1;
-        self.detail_panel = 0;
-        self.detail_scroll = 0;
-        self.error = None;
-        self.loading = true;
-        Action::Refresh
-    }
-
-    fn move_selection(&mut self, delta: isize) -> Action {
-        if !(1..=4).contains(&self.focus) {
-            return Action::None;
-        }
-
-        let panel = self.focus - 1;
-        let visible = self.visible_indices(self.focus);
-        if visible.is_empty() {
-            return Action::None;
-        }
-
-        let old_primary = self.selected_primary().map(str::to_owned);
-        let current = visible
-            .iter()
-            .position(|index| *index == self.selected[panel]);
-        let next = match current {
-            Some(position) => {
-                (position as isize + delta).rem_euclid(visible.len() as isize) as usize
-            }
-            None => 0,
-        };
-        self.selected[panel] = visible[next];
-        self.detail_scroll = 0;
-
-        if panel == 0 && old_primary.as_deref() != self.selected_primary() {
-            self.clear_related();
-            self.loading = true;
-            self.save_current_service_state();
-            Action::Refresh
-        } else {
-            self.save_current_service_state();
-            Action::None
-        }
-    }
-
-    fn normalize_filtered_selection(&mut self) -> Action {
-        let panel = match self.focus {
-            1..=4 => self.focus - 1,
-            _ => return Action::None,
-        };
-        let visible = self.visible_indices(self.focus);
-        if visible.is_empty() || visible.contains(&self.selected[panel]) {
-            self.save_current_service_state();
-            return Action::None;
-        }
-
-        let old_primary = self.selected_primary().map(str::to_owned);
-        self.selected[panel] = visible[0];
-        self.detail_scroll = 0;
-        if panel == 0 && old_primary.as_deref() != self.selected_primary() {
-            self.clear_related();
-            self.loading = true;
-            self.save_current_service_state();
-            Action::Refresh
-        } else {
-            self.save_current_service_state();
-            Action::None
-        }
-    }
-
-    fn cycle_panel(&mut self, delta: isize) {
-        let current = match self.focus {
-            0..=4 => self.focus,
-            5 => self.detail_panel + 1,
-            _ => 0,
-        };
-        self.focus = (current as isize + delta).rem_euclid(5) as usize;
-    }
-
     fn clear_related(&mut self) {
         Self::clear_snapshot_related(&mut self.snapshot);
         self.selected[1..].fill(0);
         self.detail_scroll = 0;
         self.error = None;
+        self.operation_output = None;
         self.clear_related_selection_state();
     }
 
