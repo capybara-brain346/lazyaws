@@ -1,0 +1,141 @@
+name: Native install validation
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Published stable release tag to install (vX.Y.Z)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  prepare:
+    runs-on: ubuntu-24.04
+    outputs:
+      matrix: ${{ steps.config.outputs.matrix }}
+      tag: ${{ steps.config.outputs.tag }}
+      homepage: ${{ steps.config.outputs.homepage }}
+      formula: ${{ steps.config.outputs.formula }}
+      name: ${{ steps.config.outputs.name }}
+      connect_timeout: ${{ steps.config.outputs.connect_timeout }}
+      download_timeout: ${{ steps.config.outputs.download_timeout }}
+    steps:
+      - uses: actions/checkout@eef61447b9ff4aafe5dcd4e0bbf5d482be7e7871 # actions/checkout v4.2.1
+      - name: Validate published release tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+        shell: bash
+        run: |
+          [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
+            echo "tag must use the form vX.Y.Z" >&2
+            exit 1
+          }
+          published_tag="$(gh release view "$TAG" --json tagName,isDraft,isPrerelease --jq 'select(.isDraft == false and .isPrerelease == false) | .tagName')"
+          [[ "$published_tag" == "$TAG" ]] || {
+            echo "tag must name a published GitHub release" >&2
+            exit 1
+          }
+      - id: config
+        name: Prepare native target matrix from release metadata
+        env:
+          TAG: ${{ inputs.tag }}
+        run: |
+          node --input-type=module <<'NODE'
+          import { execFileSync } from "node:child_process";
+          import { appendFileSync, readFileSync } from "node:fs";
+
+          const config = JSON.parse(readFileSync("distribution/config.json", "utf8"));
+          const metadata = JSON.parse(execFileSync("node", ["scripts/package-release.mjs", "--metadata"], {
+            encoding: "utf8",
+          }));
+
+          appendFileSync(process.env.GITHUB_OUTPUT, [
+            `matrix=${JSON.stringify(metadata.targets)}`,
+            `tag=${process.env.TAG}`,
+            `homepage=${config.homepage}`,
+            `formula=${config.tap}/${config.name}`,
+            `name=${config.name}`,
+            `connect_timeout=${config.connectTimeoutSeconds}`,
+            `download_timeout=${config.downloadTimeoutSeconds}`,
+            "",
+          ].join("\n"));
+          NODE
+
+  install:
+    needs: prepare
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.prepare.outputs.matrix) }}
+    runs-on: ${{ matrix.runner }}
+    env:
+      TAG: ${{ needs.prepare.outputs.tag }}
+      HOMEPAGE: ${{ needs.prepare.outputs.homepage }}
+      FORMULA: ${{ needs.prepare.outputs.formula }}
+      NAME: ${{ needs.prepare.outputs.name }}
+      CONNECT_TIMEOUT: ${{ needs.prepare.outputs.connect_timeout }}
+      DOWNLOAD_TIMEOUT: ${{ needs.prepare.outputs.download_timeout }}
+    steps:
+      - uses: actions/checkout@eef61447b9ff4aafe5dcd4e0bbf5d482be7e7871 # actions/checkout v4.2.1
+      - name: Generate and check installer
+        run: |
+          node scripts/generate-installer.mjs
+          git diff --exit-code -- apps/landing/public/install.sh
+      - name: Fetch the published installer
+        run: |
+          curl -fsSL \
+            --connect-timeout "$CONNECT_TIMEOUT" \
+            --max-time "$DOWNLOAD_TIMEOUT" \
+            "$HOMEPAGE/install.sh" \
+            -o "$RUNNER_TEMP/install.sh"
+          cmp apps/landing/public/install.sh "$RUNNER_TEMP/install.sh"
+      - name: Install and smoke test the published binary
+        run: |
+          export LAZYAWS_INSTALL_DIR="$RUNNER_TEMP/lazyaws-install"
+          sh "$RUNNER_TEMP/install.sh" "$TAG"
+          binary="$LAZYAWS_INSTALL_DIR/$NAME"
+          test "$("$binary" --version)" = "$NAME ${TAG#v}"
+          "$binary" --help >/dev/null
+          python3 scripts/check-demo-pty.py "$binary"
+      - name: Set up ephemeral Homebrew
+        shell: bash
+        env:
+          BREW_INSTALL_COMMIT: 7a3f48c7e498d7df3237fd41c30f4d492857edf4
+        run: |
+          if [[ "$RUNNER_OS" == Linux ]]; then
+            brew_bin=/home/linuxbrew/.linuxbrew/bin
+            brew_sbin=/home/linuxbrew/.linuxbrew/sbin
+          elif [[ "$(uname -m)" == arm64 ]]; then
+            brew_bin=/opt/homebrew/bin
+            brew_sbin=/opt/homebrew/sbin
+          else
+            brew_bin=/usr/local/bin
+            brew_sbin=/usr/local/sbin
+          fi
+
+          if ! command -v brew >/dev/null 2>&1 && [[ ! -x "$brew_bin/brew" ]]; then
+            curl -fsSL \
+              "https://raw.githubusercontent.com/Homebrew/install/$BREW_INSTALL_COMMIT/install.sh" \
+              -o "$RUNNER_TEMP/homebrew-install.sh"
+            NONINTERACTIVE=1 /bin/bash "$RUNNER_TEMP/homebrew-install.sh"
+          fi
+
+          brew_path="$(command -v brew || true)"
+          if [[ -z "$brew_path" ]]; then
+            brew_path="$brew_bin/brew"
+          fi
+          [[ -x "$brew_path" ]] || {
+            echo "Homebrew is not available at $brew_path" >&2
+            exit 1
+          }
+          brew_dir="$(dirname "$brew_path")"
+          printf '%s\n' "$brew_bin" "$brew_sbin" "$brew_dir" >> "$GITHUB_PATH"
+          export PATH="$brew_bin:$brew_sbin:$brew_dir:$PATH"
+          brew --version
+          brew install --formula "$FORMULA"
+          test "$(brew list --versions "$FORMULA")" = "$NAME ${TAG#v}"
+          brew test "$FORMULA"

@@ -144,3 +144,28 @@ External package listings require their maintainers' review. Test the current
 Arch and Omarchy environment for each release, including terminal exit.
 Native macOS builds do not prove that Gatekeeper will accept a download on a
 clean Mac. Resolve signing or notarization if that check blocks execution.
+
+## Native install checks
+
+After the site and tap are live, run `.github/workflows/install.yml` with its
+required `tag` input, for example `v0.1.0`. The workflow checks the deployed
+installer against its generated source, installs the exact release, checks
+help/version and demo exit, then installs and tests the Homebrew formula on
+all four native targets. Homebrew setup runs only on temporary GitHub runners.
+
+The initial macOS run found a test path assumption. macOS resolves its
+temporary directory from `/var` to `/private/var`. The test now keeps the raw
+input path but compares the result with the canonical parent. The application
+path is unchanged:
+
+```text
+Before:
+download test -> Operation::args -> args::download_file -> download_path
+download test -> assert_eq(raw destination)
+
+After:
+download test -> Operation::args -> args::download_file -> download_path [same]
++ download test -> Path::parent -> Path::canonicalize -> PathBuf::join
+- assert_eq(raw destination)
++ assert_eq(canonical destination)
+```
