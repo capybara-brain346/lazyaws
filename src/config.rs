@@ -83,19 +83,24 @@ pub const COST_METRIC: &str = "UnblendedCost";
 pub const COST_FORECAST_METRIC: &str = "UNBLENDED_COST";
 pub const COST_FILTER: &str =
     r#"{"Not":{"Dimensions":{"Key":"RECORD_TYPE","Values":["Credit","Refund"]}}}"#;
+// A forecast with no history is a normal state, so only this error is saved as a result.
+pub const COST_FORECAST_NO_DATA: &str = "DataUnavailableException";
+pub const COST_PANEL_RETRY: &str = "Not fully loaded. Press r to refresh it.";
+pub const COST_ACCESS_DENIED: &str = "AccessDeniedException";
+pub const COST_FORECAST_DENIED_LABEL: &str = "no permission (ce:GetCostForecast)";
+// A denied forecast is not asked again until this time has passed.
+pub const COST_PERMISSION_RECHECK: Duration = Duration::from_secs(24 * 60 * 60);
 pub const COST_DEFAULT_UNIT: &str = "USD";
 pub const COST_TOP_ROWS: usize = 10;
 pub const COST_DAILY_DAYS: usize = 14;
 pub const COST_BAR_WIDTH: usize = 10;
 pub const COST_MIN_AMOUNT: f64 = 0.005;
-pub const COST_REQUEST_PRICE_CENTS: u32 = 1;
-pub const COST_REQUESTS_PER_LOAD: u32 = 4;
 pub const COST_STALE_AFTER: Duration = Duration::from_secs(24 * 60 * 60);
 pub const COST_CACHE_DIR: &str = "lazyaws";
 pub const COST_CACHE_HOME_LINUX: &str = ".cache";
 pub const COST_CACHE_HOME_MACOS: &str = "Library/Caches";
 pub const COST_CACHE_FILE_PREFIX: &str = "cost-";
-pub const COST_CACHE_FORMAT: u64 = 1;
+pub const COST_CACHE_FORMAT: u64 = 2;
 pub const COST_PROMPT_WIDTH: u16 = 80;
 pub const COST_PROMPT_HEIGHT: u16 = 14;
 

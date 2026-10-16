@@ -22,25 +22,34 @@ pub(super) struct Day {
     estimated: bool,
 }
 
+// A period can appear on more than one page, so rows with the same date are added together.
 pub(super) fn days(response: &Value) -> Result<Vec<Day>, String> {
-    array(response, "ResultsByTime")?
-        .iter()
-        .map(|result| {
-            let period = result
-                .get("TimePeriod")
-                .ok_or("AWS response is missing `TimePeriod`")?;
-            let total = result
-                .get("Total")
-                .ok_or("AWS response is missing `Total`")?;
-            let (amount, unit) = metric(total, COST_METRIC)?;
-            Ok(Day {
-                start: string(period, "Start")?.to_owned(),
+    let mut days = Vec::<Day>::new();
+    for result in array(response, "ResultsByTime")? {
+        let period = result
+            .get("TimePeriod")
+            .ok_or("AWS response is missing `TimePeriod`")?;
+        let total = result
+            .get("Total")
+            .ok_or("AWS response is missing `Total`")?;
+        let (amount, unit) = metric(total, COST_METRIC)?;
+        let start = string(period, "Start")?;
+        let estimated = result.get("Estimated").and_then(Value::as_bool) == Some(true);
+
+        match days.iter_mut().find(|day| day.start == start) {
+            Some(day) => {
+                day.amount += amount;
+                day.estimated |= estimated;
+            }
+            None => days.push(Day {
+                start: start.to_owned(),
                 amount,
                 unit,
-                estimated: result.get("Estimated").and_then(Value::as_bool) == Some(true),
-            })
-        })
-        .collect()
+                estimated,
+            }),
+        }
+    }
+    Ok(days)
 }
 
 pub(super) fn forecast(response: &Value) -> Result<(f64, String), String> {
@@ -294,6 +303,18 @@ mod tests {
 
         let error = summary(&days, Err("DataUnavailableException".into()), today);
         assert_eq!(error[1].label, "unavailable (see details)");
+    }
+
+    #[test]
+    fn days_split_over_pages_are_added_by_date() {
+        let page = |amount: &str| {
+            json!({"TimePeriod": {"Start": "2026-10-01"}, "Estimated": false,
+                "Total": {"UnblendedCost": {"Amount": amount, "Unit": "USD"}}})
+        };
+        let response = json!({"ResultsByTime": [page("1.50"), page("2.00")]});
+        let days = days(&response).unwrap();
+        assert_eq!(days.len(), 1);
+        assert_eq!(days[0].amount, 3.5);
     }
 
     #[test]

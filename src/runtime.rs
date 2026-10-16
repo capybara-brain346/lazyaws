@@ -40,6 +40,7 @@ enum RequestKind {
     Refresh {
         service: Service,
         selected: Option<String>,
+        forecast_denied_at: Option<u64>,
     },
     Execute {
         operation: Operation,
@@ -50,6 +51,7 @@ enum RequestKind {
 enum Response {
     Refresh {
         generation: u64,
+        service: Service,
         result: Result<Box<Snapshot>, String>,
         identity: Result<AccountContext, String>,
         logs: Vec<String>,
@@ -101,7 +103,11 @@ impl Worker {
                     }
 
                     let response = match request.kind {
-                        RequestKind::Refresh { service, selected } => {
+                        RequestKind::Refresh {
+                            service,
+                            selected,
+                            forecast_denied_at,
+                        } => {
                             let mut logs = Vec::new();
                             let client = AwsCli::new(config.clone(), Arc::clone(&request.cancel));
                             let account = if config.demo {
@@ -117,10 +123,11 @@ impl Worker {
                             let result = if config.demo {
                                 Ok(demo::snapshot(service, selected.as_deref()))
                             } else {
-                                client.fetch(service, selected.as_deref())
+                                client.fetch_with(service, selected.as_deref(), forecast_denied_at)
                             };
                             Response::Refresh {
                                 generation: request.generation,
+                                service,
                                 result: result.map(Box::new),
                                 identity: account,
                                 logs,
@@ -178,6 +185,10 @@ impl Worker {
             kind: RequestKind::Refresh {
                 service: app.service,
                 selected: app.selected_primary().map(String::from),
+                forecast_denied_at: app
+                    .cost_cache
+                    .as_ref()
+                    .and_then(|cache| cache.forecast_denied_at()),
             },
         };
 
@@ -276,6 +287,7 @@ pub fn run(config: Config) -> io::Result<()> {
             match response {
                 Response::Refresh {
                     generation: response_generation,
+                    service,
                     result,
                     identity,
                     logs,
@@ -288,6 +300,10 @@ pub fn run(config: Config) -> io::Result<()> {
                     last_refresh = Instant::now();
                     if !cost_restored {
                         cost_restored = cost_cache::restore(&mut app, cost_dir.as_deref());
+                    }
+                    // The Cost tab can open from the saved result while another service loads.
+                    if service != app.service {
+                        continue;
                     }
 
                     match result {
@@ -321,6 +337,10 @@ pub fn run(config: Config) -> io::Result<()> {
                     worker.request(&mut app, &mut generation)?;
                 }
             }
+        }
+
+        if app.resume_cost() == Action::Refresh {
+            worker.request(&mut app, &mut generation)?;
         }
 
         if app.service.auto_refresh()

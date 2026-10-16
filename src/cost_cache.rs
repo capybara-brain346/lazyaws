@@ -24,13 +24,30 @@ use std::os::unix::fs::{DirBuilderExt, OpenOptionsExt};
 
 #[derive(Clone, Debug)]
 pub struct CostCache {
-    pub fetched_at: SystemTime,
+    /// When each panel was fetched. A panel that never loaded has no time.
+    pub fetched_at: [Option<SystemTime>; PANEL_COUNT],
     pub snapshot: Snapshot,
 }
 
 impl CostCache {
+    /// When AWS last denied the forecast, in seconds since the Unix epoch. The Summary
+    /// forecast row keeps it, so it is saved and loaded with the rest of the result.
+    pub fn forecast_denied_at(&self) -> Option<u64> {
+        let detail = &self.snapshot.panels[0]
+            .items
+            .iter()
+            .find(|item| item.id == "forecast")?
+            .detail;
+        detail.get("permissionDenied")?.as_bool()?.then_some(())?;
+        detail.get("deniedAt")?.as_u64()
+    }
+
+    /// The age of the oldest panel, so the shown age is never too young.
     pub fn age(&self, now: SystemTime) -> Duration {
-        now.duration_since(self.fetched_at).unwrap_or_default()
+        let oldest = self.fetched_at.iter().flatten().min();
+        oldest.map_or(Duration::ZERO, |time| {
+            now.duration_since(*time).unwrap_or_default()
+        })
     }
 }
 
@@ -139,8 +156,14 @@ fn file_path(dir: &Path, account: &str) -> Result<PathBuf, String> {
 fn encode(account: &str, cache: &CostCache) -> Value {
     let fetched_at = cache
         .fetched_at
-        .duration_since(UNIX_EPOCH)
-        .map_or(0, |elapsed| elapsed.as_secs());
+        .iter()
+        .map(|time| {
+            time.map(|time| {
+                time.duration_since(UNIX_EPOCH)
+                    .map_or(0, |elapsed| elapsed.as_secs())
+            })
+        })
+        .collect::<Vec<_>>();
     let panels = cache
         .snapshot
         .panels
@@ -175,15 +198,27 @@ fn decode(value: &Value, account: &str) -> Result<CostCache, String> {
     if value.get("account").and_then(Value::as_str) != Some(account) {
         return Err("cache belongs to another account".into());
     }
-    let fetched_at = value
+    let times = value
         .get("fetchedAt")
-        .and_then(Value::as_u64)
-        .ok_or("cache is missing `fetchedAt`")?;
+        .and_then(Value::as_array)
+        .filter(|times| times.len() == PANEL_COUNT)
+        .ok_or("cache must have one fetch time for each panel")?;
+    let mut fetched_at = [None; PANEL_COUNT];
+    for (slot, time) in fetched_at.iter_mut().zip(times) {
+        *slot = match time {
+            Value::Null => None,
+            _ => Some(UNIX_EPOCH + Duration::from_secs(time.as_u64().ok_or("bad fetch time")?)),
+        };
+    }
     let panels = value
         .get("panels")
         .and_then(Value::as_array)
         .filter(|panels| panels.len() == PANEL_COUNT)
         .ok_or("cache must have one list for each panel")?;
+
+    if fetched_at.iter().all(Option::is_none) {
+        return Err("cache has no fetch time".into());
+    }
 
     let mut snapshot = Snapshot::empty(Service::Cost);
     for (panel, items) in snapshot.panels.iter_mut().zip(panels) {
@@ -195,7 +230,7 @@ fn decode(value: &Value, account: &str) -> Result<CostCache, String> {
             .collect::<Result<_, _>>()?;
     }
     Ok(CostCache {
-        fetched_at: UNIX_EPOCH + Duration::from_secs(fetched_at),
+        fetched_at,
         snapshot,
     })
 }
@@ -224,7 +259,12 @@ mod tests {
     fn saved_cost_survives_reload_and_is_scoped_to_its_account() {
         let dir = std::env::temp_dir().join(format!("lazyaws-cost-cache-{}", std::process::id()));
         let cache = CostCache {
-            fetched_at: UNIX_EPOCH + Duration::from_secs(1_760_000_000),
+            fetched_at: [
+                Some(UNIX_EPOCH + Duration::from_secs(1_760_000_000)),
+                None,
+                None,
+                None,
+            ],
             snapshot: demo::snapshot(Service::Cost, None),
         };
 

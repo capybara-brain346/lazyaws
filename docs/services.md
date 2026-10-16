@@ -43,16 +43,21 @@ Use these read permissions:
 
 ## Cost tab
 
-AWS Cost Explorer charges $0.01 for each API request. One Cost tab load sends
-4 requests ($0.04). The tab never refreshes by itself. The 5-second poll skips
+AWS Cost Explorer charges for each API request, so loading or refreshing Cost
+data causes charges on your AWS bill. Each Cost Explorer request, including
+each extra page, is charged. The number of requests depends on the account, so
+the dialog shows no count or price. Lazy AWS follows every page of a usage
+request, and stops with an error if a page returns a token that was already sent. The
+tab never refreshes by itself. The 5-second poll skips
 it, and a row selection on the tab sends no command.
 
 | Event | Dialog | AWS requests |
 | --- | --- | --- |
-| Open the tab with no saved result | Yes, every time | 4 after `y`; 0 after `n` or Esc |
+| Open the tab with no saved result | Yes, every time | Charged after `y`; 0 after `n` or Esc |
 | Open the tab with a saved result | No | 0 |
-| Press `r` on the tab | Yes, every time | 4 after `y`; 0 after `n` or Esc |
+| Press `r` on the tab | Yes, every time | Charged after `y`; 0 after `n` or Esc |
 | Restart Lazy AWS, then open the tab | No, if a saved result exists | 0 |
+| Open the tab before the AWS account is known | The tab shows `loading…` until the account is known. Then it shows the saved result, or returns to your service and shows the dialog if none exists | 0 |
 
 The dialog has no "do not show again" option. If you cancel the first load,
 the current tab stays open. If you cancel a refresh, the saved data stays.
@@ -60,9 +65,9 @@ the current tab stays open. If you cancel a refresh, the saved data stays.
 ```text
 open Cost tab --> saved result? -- yes --> show it, 0 requests
                        |
-                       no --> dialog ($0.04) -- y --> 4 requests --> save
+                       no --> dialog (charges) -- y --> requests --> save
                                              -- n --> stay on current tab
-r on Cost tab --> dialog ($0.04) -- y --> 4 requests --> replace saved result
+r on Cost tab --> dialog (charges) -- y --> requests --> replace saved result
                                  -- n --> keep saved result
 ```
 
@@ -72,7 +77,10 @@ uses `~/.cache/lazyaws` on Linux and `~/Library/Caches/lazyaws` on macOS. The
 file has mode `600`. The saved result has no expiry. A confirmed refresh
 replaces it. Delete the file to remove it. The header shows the age, such as
 `fetched 3 h ago`; the age turns to the warning color after 24 hours. If a
-refresh fails, the saved result and its fetch time stay. Demo mode keeps its
+refresh fails in some panels, Lazy AWS saves the panels that loaded. A failed
+panel keeps its older rows and fetch time, and the header shows the age of the
+oldest panel. A panel that never loaded shows an error and no fetch time. If a
+page of a usage request fails, that panel counts as failed. Demo mode keeps its
 result in memory only. If you leave the tab while a confirmed load runs, Lazy
 AWS stops the CLI, but AWS can still charge for requests it already received.
 
@@ -88,10 +96,27 @@ The requests use `UnblendedCost` in UTC dates and exclude the `Credit` and
 forecast adds the cost before today to the forecast from today. Cost Explorer
 data can be up to 24 hours late. The requests use `us-east-1`, the Cost
 Explorer endpoint; the AWS China partitions are not supported. A new account
-can have no forecast; the forecast row then shows the error in Details. The
-values, limits, and price are in `src/config.rs`.
+can have no forecast (`DataUnavailableException`); the forecast row then shows
+the error in Details and the result is saved. Other forecast errors, such as a
+throttle or a timeout, mark the Summary panel as failed. Its rows (month to
+date, last month) are still saved, but the panel keeps its old fetch time, or
+none, and shows an error until the next refresh. The
+values and limits are in `src/config.rs`.
 
-Use `ce:GetCostAndUsage` and `ce:GetCostForecast`. In AWS Organizations, the
+Use `ce:GetCostAndUsage` and `ce:GetCostForecast`. Without
+`ce:GetCostAndUsage`, the first request fails with "Missing permission
+ce:GetCostAndUsage", all panels show the error, and the load sends no other
+request. Nothing is remembered for that case. Without `ce:GetCostForecast`,
+the Summary shows `Month-end forecast: no permission (ce:GetCostForecast)`, and
+the other panels load normally. Lazy AWS saves the denial with its time in the
+Cost result and does not send the forecast request again for 24 hours (loads and
+refreshes in that time send none). After 24 hours it sends the request once. A
+new denial records a new time, and a success clears it. To check the permission
+at once, delete the saved file (`$XDG_CACHE_HOME/lazyaws/cost-<account-id>.json`,
+or `~/.cache/lazyaws/cost-<account-id>.json` on Linux and
+`~/Library/Caches/lazyaws/cost-<account-id>.json` on macOS) and load again.
+
+In AWS Organizations, the
 management account can block Cost Explorer access for member accounts.
 
 ## Actions

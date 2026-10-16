@@ -370,19 +370,15 @@ pub fn outcome_unknown(error: &str) -> bool {
 }
 
 fn has_more(value: &Value) -> bool {
-    [
-        "NextToken",
-        "nextToken",
-        "NextPageToken",
-        "ContinuationToken",
-    ]
-    .iter()
-    .any(|field| {
-        value
-            .get(field)
-            .and_then(Value::as_str)
-            .is_some_and(|token| !token.is_empty())
-    }) || value.get("IsTruncated").and_then(Value::as_bool) == Some(true)
+    ["NextToken", "nextToken", "ContinuationToken"]
+        .iter()
+        .any(|field| {
+            value
+                .get(field)
+                .and_then(Value::as_str)
+                .is_some_and(|token| !token.is_empty())
+        })
+        || value.get("IsTruncated").and_then(Value::as_bool) == Some(true)
 }
 
 #[cfg(all(test, unix))]

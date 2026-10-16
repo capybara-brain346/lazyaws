@@ -10,22 +10,11 @@ use ratatui::{
 
 use crate::{
     app::{App, CostPrompt},
-    aws::money,
-    config::{
-        ACTION_CONFIRM_PROMPT, COST_DEFAULT_UNIT, COST_PROMPT_HEIGHT, COST_PROMPT_WIDTH,
-        COST_REQUEST_PRICE_CENTS, COST_REQUESTS_PER_LOAD, COST_STALE_AFTER,
-    },
+    config::{ACTION_CONFIRM_PROMPT, COST_PROMPT_HEIGHT, COST_PROMPT_WIDTH, COST_STALE_AFTER},
     cost_cache::age_text,
 };
 
 use super::{HitMap, actions::draw_controls, chrome::pane_block};
-
-fn price(requests: u32) -> String {
-    money(
-        f64::from(COST_REQUEST_PRICE_CENTS * requests) / 100.0,
-        COST_DEFAULT_UNIT,
-    )
-}
 
 fn saved_age(app: &App) -> Option<(String, bool)> {
     let age = app.cost_cache.as_ref()?.age(SystemTime::now());
@@ -55,25 +44,21 @@ pub(super) fn draw_cost_prompt(
         rect.height.saturating_sub(2),
     );
     let theme = app.theme();
-    let load_price = price(COST_REQUESTS_PER_LOAD);
     let (title, request_line, cancel_line) = match prompt {
         CostPrompt::Load => (
             "Load costs?",
-            format!("Loading this tab sends {COST_REQUESTS_PER_LOAD} requests: {load_price}."),
+            "Loading Cost data causes charges on your AWS bill.",
             "Cancel keeps you on the current tab. There is no charge.",
         ),
         CostPrompt::Refresh => (
             "Refresh costs?",
-            format!("Refreshing sends {COST_REQUESTS_PER_LOAD} requests: {load_price}."),
+            "Refreshing Cost data causes charges on your AWS bill.",
             "Cancel keeps the saved data. There is no charge.",
         ),
     };
 
     let mut lines = vec![
-        Line::from(format!(
-            "AWS Cost Explorer charges {} for each API request.",
-            price(1)
-        )),
+        Line::from("AWS Cost Explorer charges for each API request."),
         Line::from(Span::styled(
             request_line,
             Style::default().fg(theme.warning),
@@ -114,10 +99,7 @@ pub(super) fn draw_cost_prompt(
 pub(super) fn status_line(app: &App) -> Line<'static> {
     let theme = app.theme();
     let label = Span::styled(" Cost data: ", Style::default().fg(theme.title));
-    let refresh = format!(
-        " · r refresh ({}) · no auto-refresh",
-        price(COST_REQUESTS_PER_LOAD)
-    );
+    let refresh = " · r refresh (charged) · no auto-refresh";
     let Some((age, stale)) = saved_age(app) else {
         let state = if app.loading {
             "loading…"

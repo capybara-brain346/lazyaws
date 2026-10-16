@@ -280,6 +280,7 @@ impl App {
             return Action::None;
         }
 
+        self.cost_origin = None;
         if service == Service::Cost {
             return self.open_cost();
         }

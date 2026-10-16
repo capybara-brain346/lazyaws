@@ -15,7 +15,7 @@ Lazy AWS shells out to your AWS CLI and shows the exact command before it runs, 
 ## Features
 
 - **Browse anywhere**: five service tabs (EC2, ECS, ECR, S3, Lambda) with resource lists, related resources, filters, and JSON details.
-- **Cost at a glance**: a Cost tab shows month to date, the month-end forecast, last month, top services, the last 14 days, and top regions. Cost Explorer charges $0.01 per request, so the tab asks before each paid load ($0.04), saves the result on this computer, and never refreshes by itself. Press `r` on the tab to refresh.
+- **Cost at a glance**: a Cost tab shows month to date, the month-end forecast, last month, top services, the last 14 days, and top regions. Cost Explorer charges for each API request, so the tab asks before each paid load, saves the result on this computer, and never refreshes by itself. Press `r` on the tab to refresh.
 - **Act with confirmation**: every action — including reads — shows account, target, warning, and the exact AWS CLI command before it runs.
 - **Lazygit layout**: five left panes, a detail pane, a command log, and a key bar. The focused left pane grows; the log compacts on short terminals.
 - **Keyboard and mouse**: tabs, panes, rows, filters, scrolling, action dialogs, and drag-to-copy text selection all work with keys or mouse.
@@ -140,7 +140,7 @@ File transfers ask for a path. A bucket upload uses the local file name as the o
 | `/` | Filter the current list |
 | Enter / Esc in the filter | Accept / clear the filter |
 | PageUp / PageDown | Scroll details |
-| `r` | Refresh data. On the Cost tab, `r` asks first because the refresh costs $0.04 |
+| `r` | Refresh data. On the Cost tab, `r` asks first because the refresh causes charges on your AWS bill |
 | `y` / `n` or Esc in the Cost dialog | Load or refresh costs / cancel with no charge |
 | `a` or right-click a selected row | Open its actions |
 | Up / Down in the action menu | Select an action |

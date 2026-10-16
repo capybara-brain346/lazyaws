@@ -140,12 +140,16 @@ after the user confirms. See [the service guide](services.md#cost-tab).
 ```text
 App::change_service(Cost) -> App::open_cost
    -> saved result: enter_service + apply(cached) -> Action::None   (no request)
+   -> no result, account unknown: enter_service(Cost) (loading), cost_origin = old service
    -> no result:    cost_prompt = Load            -> Action::None
 App::handle_key('r') on Cost -> ask_cost_refresh -> cost_prompt = Refresh
 App::confirm_cost (y or click Y) -> Action::Refresh -> Worker::request
-   -> AwsCli::fetch -> cost::fetch -> FetchContext::invoke_region (4 x ce, us-east-1)
+   -> AwsCli::fetch_with(forecast_denied_at from the saved result) -> cost::fetch -> FetchContext::invoke_region (ce, us-east-1;
+      cost::usage follows every NextPageToken with --next-page-token)
 runtime: Response::Refresh -> App::apply -> cost_cache::store -> save to disk
-runtime: first identity -> cost_cache::restore -> App.cost_cache
+runtime: first identity -> cost_cache::restore -> App.cost_cache -> App::resume_cost (each loop; waits while a modal is open)
+   -> saved result: show it | none: back to cost_origin + cost_prompt = Load + Action::Refresh
+runtime: Response::Refresh for another service than App.service -> dropped
 runtime: poll -> skipped while !Service::auto_refresh()
 ```
 
