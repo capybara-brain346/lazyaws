@@ -8,6 +8,7 @@ use ratatui::{
 
 mod actions;
 mod chrome;
+mod cost;
 mod details;
 mod mouse;
 mod themes;
@@ -91,7 +92,9 @@ pub fn draw_interactive(frame: &mut Frame, app: &App, config: &Config) -> HitMap
         MouseTarget::OpenActions,
     ));
 
-    if let Some(dialog) = &app.actions {
+    if let Some(prompt) = app.cost_prompt {
+        cost::draw_cost_prompt(frame, area, app, prompt, config.demo, &mut hit_map);
+    } else if let Some(dialog) = &app.actions {
         actions::draw_action_dialog(frame, area, app, dialog, config, &mut hit_map);
     } else if let Some(selected) = app.theme_picker {
         themes::draw_theme_picker(frame, area, app, selected, &mut hit_map);
@@ -182,6 +185,8 @@ fn draw_services(frame: &mut Frame, area: Rect, app: &App, hit_map: &mut HitMap)
             filter.push(Span::styled("▏", Style::default().fg(theme.warning)));
         }
         lines.push(Line::from(filter));
+    } else if app.service == Service::Cost {
+        lines.push(cost::status_line(app));
     } else {
         lines.push(Line::default());
     }

@@ -6,7 +6,7 @@ use std::{
         mpsc::{self, Receiver, Sender},
     },
     thread::{self, JoinHandle},
-    time::Instant,
+    time::{Instant, SystemTime},
 };
 
 use crossterm::{
@@ -20,7 +20,7 @@ use crate::{
     app::{Action, App},
     aws::{self, AwsCli},
     config::{Config, EVENT_WAIT, POLL_INTERVAL},
-    demo,
+    cost_cache, demo,
     model::{Service, Snapshot},
     operations::{AccountContext, Operation},
     ui,
@@ -40,6 +40,7 @@ enum RequestKind {
     Refresh {
         service: Service,
         selected: Option<String>,
+        forecast_denied_at: Option<u64>,
     },
     Execute {
         operation: Operation,
@@ -50,6 +51,7 @@ enum RequestKind {
 enum Response {
     Refresh {
         generation: u64,
+        service: Service,
         result: Result<Box<Snapshot>, String>,
         identity: Result<AccountContext, String>,
         logs: Vec<String>,
@@ -101,7 +103,11 @@ impl Worker {
                     }
 
                     let response = match request.kind {
-                        RequestKind::Refresh { service, selected } => {
+                        RequestKind::Refresh {
+                            service,
+                            selected,
+                            forecast_denied_at,
+                        } => {
                             let mut logs = Vec::new();
                             let client = AwsCli::new(config.clone(), Arc::clone(&request.cancel));
                             let account = if config.demo {
@@ -117,10 +123,11 @@ impl Worker {
                             let result = if config.demo {
                                 Ok(demo::snapshot(service, selected.as_deref()))
                             } else {
-                                client.fetch(service, selected.as_deref())
+                                client.fetch_with(service, selected.as_deref(), forecast_denied_at)
                             };
                             Response::Refresh {
                                 generation: request.generation,
+                                service,
                                 result: result.map(Box::new),
                                 identity: account,
                                 logs,
@@ -178,6 +185,10 @@ impl Worker {
             kind: RequestKind::Refresh {
                 service: app.service,
                 selected: app.selected_primary().map(String::from),
+                forecast_denied_at: app
+                    .cost_cache
+                    .as_ref()
+                    .and_then(|cache| cache.forecast_denied_at()),
             },
         };
 
@@ -267,12 +278,16 @@ pub fn run(config: Config) -> io::Result<()> {
     let mut last_refresh = Instant::now();
     let mut selection = TextSelection::default();
     let mut hit_map = ui::HitMap::default();
+    // Demo data never touches the saved Cost result.
+    let cost_dir = cost_cache::directory(|name| std::env::var(name).ok()).filter(|_| !config.demo);
+    let mut cost_restored = false;
 
     loop {
         while let Ok(response) = worker.responses.try_recv() {
             match response {
                 Response::Refresh {
                     generation: response_generation,
+                    service,
                     result,
                     identity,
                     logs,
@@ -283,9 +298,22 @@ pub fn run(config: Config) -> io::Result<()> {
                     }
                     app.account = Some(identity);
                     last_refresh = Instant::now();
+                    if !cost_restored {
+                        cost_restored = cost_cache::restore(&mut app, cost_dir.as_deref());
+                    }
+                    // The Cost tab can open from the saved result while another service loads.
+                    if service != app.service {
+                        continue;
+                    }
 
                     match result {
-                        Ok(snapshot) => app.apply(*snapshot),
+                        Ok(snapshot) => {
+                            let cost = snapshot.service == Service::Cost;
+                            app.apply(*snapshot);
+                            if cost {
+                                cost_cache::store(&mut app, cost_dir.as_deref(), SystemTime::now());
+                            }
+                        }
                         Err(error) => {
                             app.loading = false;
                             app.error = Some(error.clone());
@@ -311,7 +339,12 @@ pub fn run(config: Config) -> io::Result<()> {
             }
         }
 
-        if !app.loading
+        if app.resume_cost() == Action::Refresh {
+            worker.request(&mut app, &mut generation)?;
+        }
+
+        if app.service.auto_refresh()
+            && !app.loading
             && app.actions.is_none()
             && !app.executing
             && last_refresh.elapsed() >= POLL_INTERVAL
@@ -462,7 +495,10 @@ mod tests {
                     result,
                     ..
                 } if response_generation == generation => {
-                    assert_eq!(result.unwrap().service, Service::Lambda);
+                    assert_eq!(
+                        result.unwrap().service,
+                        Service::ALL[99 % Service::ALL.len()]
+                    );
                     break;
                 }
                 Response::Execute { .. } => panic!("unexpected operation response"),

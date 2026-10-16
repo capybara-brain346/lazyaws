@@ -419,3 +419,153 @@ fn theme_picker_previews_then_applies_or_reverts() {
     assert_eq!(app.theme().name, "Cobalt2");
     assert_eq!(app.theme_picker, None);
 }
+
+#[test]
+fn cost_tab_charges_only_after_confirmation_and_reopens_from_cache() {
+    let mut app = App::new();
+    app.account = Some(Err("no account".into()));
+
+    assert_eq!(app.handle_key(key(KeyCode::Char('['))), Action::None);
+    assert_eq!(app.service, Service::Ec2);
+    assert_eq!(app.cost_prompt, Some(CostPrompt::Load));
+    assert_eq!(app.handle_key(key(KeyCode::Esc)), Action::None);
+    assert_eq!((app.service, app.cost_prompt), (Service::Ec2, None));
+
+    app.handle_key(key(KeyCode::Char('[')));
+    assert_eq!(app.handle_key(key(KeyCode::Char('y'))), Action::Refresh);
+    assert_eq!(app.service, Service::Cost);
+    assert!(!Service::Cost.auto_refresh());
+    app.apply(crate::demo::snapshot(Service::Cost, None));
+    assert!(
+        app.cache_cost_snapshot(std::time::SystemTime::now())
+            .is_some()
+    );
+    assert_eq!(app.handle_key(key(KeyCode::Char('j'))), Action::None);
+
+    assert_eq!(app.handle_key(key(KeyCode::Char(']'))), Action::Refresh);
+    assert_eq!(app.handle_key(key(KeyCode::Char('['))), Action::None);
+    assert_eq!((app.service, app.cost_prompt), (Service::Cost, None));
+    assert_eq!(app.snapshot.panels[0].items.len(), 4);
+
+    assert_eq!(app.handle_key(key(KeyCode::Char('r'))), Action::None);
+    assert_eq!(app.cost_prompt, Some(CostPrompt::Refresh));
+    assert_eq!(app.handle_key(key(KeyCode::Char('n'))), Action::None);
+    app.handle_key(key(KeyCode::Char('r')));
+    assert_eq!(app.handle_key(key(KeyCode::Char('y'))), Action::Refresh);
+
+    let fetched_at = app.cost_cache.as_ref().unwrap().fetched_at;
+    assert!(fetched_at.iter().all(Option::is_some));
+    let mut failed = Snapshot::empty(Service::Cost);
+    for panel in &mut failed.panels {
+        panel.error = Some("AccessDeniedException".into());
+    }
+    app.apply(failed);
+    assert!(
+        app.cache_cost_snapshot(std::time::SystemTime::now())
+            .is_none()
+    );
+    assert_eq!(app.cost_cache.as_ref().unwrap().fetched_at, fetched_at);
+    assert_eq!(app.snapshot.panels[0].items.len(), 4);
+}
+
+#[test]
+fn cost_tab_shows_loading_until_the_account_is_known_then_uses_the_saved_result() {
+    let mut app = App::new();
+    let saved = crate::cost_cache::CostCache {
+        fetched_at: [Some(std::time::UNIX_EPOCH); PANEL_COUNT],
+        snapshot: crate::demo::snapshot(Service::Cost, None),
+    };
+
+    app.handle_key(key(KeyCode::Char('[')));
+    assert_eq!((app.service, app.cost_prompt), (Service::Cost, None));
+    assert!(app.loading);
+    assert_eq!(app.resume_cost(), Action::None);
+
+    app.account = Some(Err("no account".into()));
+    app.cost_cache = Some(saved);
+    app.help = true;
+    assert_eq!(app.resume_cost(), Action::None);
+    assert!(app.loading);
+
+    app.help = false;
+    assert_eq!(app.resume_cost(), Action::None);
+    assert_eq!((app.service, app.cost_prompt), (Service::Cost, None));
+    assert_eq!(app.snapshot.panels[0].items.len(), 4);
+}
+
+#[test]
+fn cost_tab_without_a_saved_result_returns_to_its_service_and_asks() {
+    let mut app = App::new();
+    app.handle_key(key(KeyCode::Char('[')));
+    app.account = Some(Err("no account".into()));
+
+    assert_eq!(app.resume_cost(), Action::Refresh);
+    assert_eq!(
+        (app.service, app.cost_prompt),
+        (Service::Ec2, Some(CostPrompt::Load))
+    );
+}
+
+#[test]
+fn saved_cost_with_an_unloaded_summary_still_shows_the_other_panels() {
+    let mut app = App::new();
+    app.account = Some(Err("no account".into()));
+    app.cost_cache = Some(crate::cost_cache::CostCache {
+        fetched_at: [
+            None,
+            Some(std::time::UNIX_EPOCH),
+            Some(std::time::UNIX_EPOCH),
+            Some(std::time::UNIX_EPOCH),
+        ],
+        snapshot: crate::demo::snapshot(Service::Cost, None),
+    });
+
+    app.handle_key(key(KeyCode::Char('[')));
+
+    assert_eq!(app.service, Service::Cost);
+    assert!(app.snapshot.panels[0].error.is_some());
+    for panel in &app.snapshot.panels[1..] {
+        assert!(panel.error.is_none() && !panel.items.is_empty());
+    }
+}
+
+#[test]
+fn failed_cost_panel_keeps_its_older_rows_and_fetch_time() {
+    let mut app = App::new();
+    app.account = Some(Err("no account".into()));
+    app.handle_key(key(KeyCode::Char('[')));
+    app.handle_key(key(KeyCode::Char('y')));
+    let old = std::time::UNIX_EPOCH + std::time::Duration::from_secs(100);
+    app.apply(crate::demo::snapshot(Service::Cost, None));
+    app.cache_cost_snapshot(old);
+
+    let now = old + std::time::Duration::from_secs(50);
+    let mut fresh = crate::demo::snapshot(Service::Cost, None);
+    fresh.panels[1].items.clear();
+    fresh.panels[1].error = Some("Throttling".into());
+    app.apply(fresh);
+    let cache = app.cache_cost_snapshot(now).unwrap();
+
+    assert_eq!(
+        cache.fetched_at,
+        [Some(now), Some(old), Some(now), Some(now)]
+    );
+    assert!(!cache.snapshot.panels[1].items.is_empty());
+}
+
+#[test]
+fn failed_forecast_keeps_summary_rows_but_not_their_fetch_time() {
+    let mut app = App::new();
+    app.account = Some(Err("no account".into()));
+    app.handle_key(key(KeyCode::Char('[')));
+    app.handle_key(key(KeyCode::Char('y')));
+    let mut fresh = crate::demo::snapshot(Service::Cost, None);
+    fresh.panels[0].error = Some("ThrottlingException".into());
+    app.apply(fresh);
+
+    let now = std::time::UNIX_EPOCH + std::time::Duration::from_secs(100);
+    let cache = app.cache_cost_snapshot(now).unwrap();
+
+    assert_eq!(cache.fetched_at, [None, Some(now), Some(now), Some(now)]);
+    assert_eq!(cache.snapshot.panels[0].items.len(), 4);
+}

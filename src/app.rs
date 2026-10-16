@@ -2,17 +2,20 @@ use std::{collections::VecDeque, mem, time::Instant};
 
 use crate::{
     config::{DEFAULT_THEME, LOG_CAPACITY, THEMES_JSON},
+    cost_cache::CostCache,
     model::{PANEL_COUNT, Panel, Resource, Service, Snapshot},
     operations::AccountContext,
     theme::{self, Theme},
 };
 
 mod actions;
+mod cost;
 mod focus;
 mod input;
 mod themes;
 
 pub use actions::ActionDialog;
+pub use cost::CostPrompt;
 pub use focus::Focus;
 pub use input::Action;
 
@@ -44,6 +47,9 @@ pub struct App {
     pub themes: Vec<Theme>,
     pub theme: usize,
     pub theme_picker: Option<usize>,
+    pub cost_prompt: Option<CostPrompt>,
+    pub cost_cache: Option<CostCache>,
+    cost_origin: Option<Service>,
     service_states: [ServiceState; Service::ALL.len()],
     detail_panel: usize,
     filter_panel: usize,
@@ -85,6 +91,9 @@ impl App {
             themes,
             theme: 0,
             theme_picker: None,
+            cost_prompt: None,
+            cost_cache: None,
+            cost_origin: None,
             service_states: std::array::from_fn(|_| ServiceState::default()),
             detail_panel: 0,
             filter_panel: 0,
