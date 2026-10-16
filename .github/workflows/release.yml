@@ -142,3 +142,13 @@ jobs:
           gh release edit "$TAG" --draft=false
         env:
           GH_TOKEN: ${{ github.token }}
+
+  crate:
+    needs: [prepare, publish]
+    if: needs.prepare.outputs.mode == 'build'
+    permissions:
+      contents: read
+    uses: ./.github/workflows/crates.yml
+    with:
+      mode: publish
+    secrets: inherit

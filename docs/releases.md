@@ -9,7 +9,7 @@
 | GitHub Releases | [Latest release](https://github.com/capybara-brain346/lazyaws/releases/latest), immutable assets, published by `release.yml` |
 | curl | Live at https://lazyaws.xyz/install.sh; installs the latest GitHub release automatically |
 | Homebrew | Published [tap](https://github.com/capybara-brain346/homebrew-tap); its `update-lazyaws` workflow follows the latest release |
-| crates.io | Published [0.1.0](https://crates.io/crates/lazyaws/0.1.0); locked registry install and demo checks pass |
+| crates.io | [lazyaws](https://crates.io/crates/lazyaws); `release.yml` publishes each release tag through `crates.yml` |
 | AUR | Recipe prepared; owner declined AUR publication |
 | R2 | Account not enabled; owner chose GitHub downloads now and R2 later |
 | Homebrew core / MacPorts / Ubuntu / Snap | Later review; no listing claimed |
@@ -127,14 +127,27 @@ The AUR recipe stays in this repository. It can be built locally with
 It is not in the AUR or a configured pacman repository. Do not advertise
 `yay -S lazyaws-bin` or `pacman -S lazyaws` as available install commands.
 
-For the first crates.io release, use the local Cargo credential and run
-`cargo publish --locked` from the clean release commit. The publish command
-sends only the source package selected by `Cargo.toml`; it does not upload
-the website or credentials. `.github/workflows/crates.yml` can run a dry run
-or publish from a matching stable tag. Its publish job reads
-`CARGO_REGISTRY_TOKEN` from the `crates.io` GitHub environment. The supplied
-credential is configured there; it is not available to pull-request jobs.
-Replace it through GitHub environment secrets when it expires or is revoked.
+crates.io: after the `publish` job, `release.yml` calls `crates.yml` with
+`mode=publish`. That workflow checks that the tag matches `Cargo.toml`, runs
+`cargo package --list` and `cargo publish --dry-run --locked`, then runs
+`cargo publish --locked`. The publish command sends only the source package
+selected by `Cargo.toml`; it does not upload the website or credentials. A
+crates.io version is permanent, so the job skips a version that crates.io
+already has, and a rerun does not fail on it. The publish job reads
+`CARGO_REGISTRY_TOKEN` from the `crates.io` GitHub environment; it is not
+available to pull-request jobs. Replace it through GitHub environment secrets
+when it expires or is revoked. To publish an existing tag by hand, run
+`crates.yml` on that tag with `mode=publish`.
+
+```text
+release.yml: prepare -> build x4 -> publish (GitHub Release)
+                                        |
+                                        v
+                         crate -> crates.yml (mode=publish)
+                                  check: tag = Cargo.toml, dry run
+                                  publish: on crates.io already? -> skip
+                                           no -> cargo publish --locked
+```
 
 Cloudflare deploys use the existing `lazyaws` Worker in account
 `32f2a5e2a676ee905a3828b2b38b0150`. Custom domains are declared in
