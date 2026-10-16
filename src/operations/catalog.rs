@@ -26,6 +26,7 @@ pub fn available(
         Service::Ecr => ecr::available(panel, resource, primary),
         Service::S3 => s3::available(panel, resource, primary, snapshot),
         Service::Lambda => lambda::available(panel, resource, primary),
+        Service::Cost => Vec::new(),
     }
 }
 

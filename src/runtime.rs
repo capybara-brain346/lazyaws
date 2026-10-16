@@ -6,7 +6,7 @@ use std::{
         mpsc::{self, Receiver, Sender},
     },
     thread::{self, JoinHandle},
-    time::Instant,
+    time::{Instant, SystemTime},
 };
 
 use crossterm::{
@@ -20,7 +20,7 @@ use crate::{
     app::{Action, App},
     aws::{self, AwsCli},
     config::{Config, EVENT_WAIT, POLL_INTERVAL},
-    demo,
+    cost_cache, demo,
     model::{Service, Snapshot},
     operations::{AccountContext, Operation},
     ui,
@@ -267,6 +267,9 @@ pub fn run(config: Config) -> io::Result<()> {
     let mut last_refresh = Instant::now();
     let mut selection = TextSelection::default();
     let mut hit_map = ui::HitMap::default();
+    // Demo data never touches the saved Cost result.
+    let cost_dir = cost_cache::directory(|name| std::env::var(name).ok()).filter(|_| !config.demo);
+    let mut cost_restored = false;
 
     loop {
         while let Ok(response) = worker.responses.try_recv() {
@@ -283,9 +286,18 @@ pub fn run(config: Config) -> io::Result<()> {
                     }
                     app.account = Some(identity);
                     last_refresh = Instant::now();
+                    if !cost_restored {
+                        cost_restored = cost_cache::restore(&mut app, cost_dir.as_deref());
+                    }
 
                     match result {
-                        Ok(snapshot) => app.apply(*snapshot),
+                        Ok(snapshot) => {
+                            let cost = snapshot.service == Service::Cost;
+                            app.apply(*snapshot);
+                            if cost {
+                                cost_cache::store(&mut app, cost_dir.as_deref(), SystemTime::now());
+                            }
+                        }
                         Err(error) => {
                             app.loading = false;
                             app.error = Some(error.clone());
@@ -311,7 +323,8 @@ pub fn run(config: Config) -> io::Result<()> {
             }
         }
 
-        if !app.loading
+        if app.service.auto_refresh()
+            && !app.loading
             && app.actions.is_none()
             && !app.executing
             && last_refresh.elapsed() >= POLL_INTERVAL
@@ -462,7 +475,10 @@ mod tests {
                     result,
                     ..
                 } if response_generation == generation => {
-                    assert_eq!(result.unwrap().service, Service::Lambda);
+                    assert_eq!(
+                        result.unwrap().service,
+                        Service::ALL[99 % Service::ALL.len()]
+                    );
                     break;
                 }
                 Response::Execute { .. } => panic!("unexpected operation response"),

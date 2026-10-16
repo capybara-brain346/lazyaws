@@ -15,10 +15,11 @@ Lazy AWS shells out to your AWS CLI and shows the exact command before it runs, 
 ## Features
 
 - **Browse anywhere**: five service tabs (EC2, ECS, ECR, S3, Lambda) with resource lists, related resources, filters, and JSON details.
+- **Cost at a glance**: a Cost tab shows month to date, the month-end forecast, last month, top services, the last 14 days, and top regions. Cost Explorer charges $0.01 per request, so the tab asks before each paid load ($0.04), saves the result on this computer, and never refreshes by itself. Press `r` on the tab to refresh.
 - **Act with confirmation**: every action — including reads — shows account, target, warning, and the exact AWS CLI command before it runs.
 - **Lazygit layout**: five left panes, a detail pane, a command log, and a key bar. The focused left pane grows; the log compacts on short terminals.
 - **Keyboard and mouse**: tabs, panes, rows, filters, scrolling, action dialogs, and drag-to-copy text selection all work with keys or mouse.
-- **Live but safe refresh**: only the active service is polled, five seconds after the previous refresh finishes, without overlapping requests. Errors keep the last good data and mark it stale.
+- **Live but safe refresh**: only the active service is polled (never the Cost tab), five seconds after the previous refresh finishes, without overlapping requests. Errors keep the last good data and mark it stale.
 - **Themes**: press `t` to preview and apply one of 20 bundled color themes, or keep the default terminal colors.
 - **Demo mode**: `cargo run -- --demo` runs on local sample data with no AWS CLI or credentials.
 
@@ -100,6 +101,7 @@ File transfers ask for a path. A bucket upload uses the local file name as the o
 
 - Lazy AWS only talks to AWS through the AWS CLI: credentials in, JSON out. It disables the pager and prompts.
 - The header shows the account ID and short principal. Press `1` to see the full ARN, user ID, profile, and region. It never shows credentials or tokens.
+- The Cost tab asks before each Cost Explorer load, because AWS charges for each request. See [the Cost tab guide](docs/services.md#cost-tab).
 - The action dialog asks for confirmation before it runs anything. An interrupted or timed-out action can still finish in AWS — refresh before you try it again.
 - Timeouts and limits live in [src/config.rs](src/config.rs): 20 seconds per command, 30 seconds per snapshot, and 60 minutes per S3 file upload or download. The identity lookup runs on the first refresh and again only after it fails. Large lists can be incomplete; the command log shows limit notices.
 
@@ -113,7 +115,7 @@ File transfers ask for a path. A bucket upload uses the local file name as the o
 ## Screen and keys
 
 ```text
-+---------------- EC2 | ECS | ECR | S3 | Lambda ----------+
++------------- EC2 | ECS | ECR | S3 | Lambda | Cost ------+
 | Account: 123456789012 · assumed-role/ops/alice       |
 | Filter                                               |
 |-------------------|---------------------------------|
@@ -138,7 +140,8 @@ File transfers ask for a path. A bucket upload uses the local file name as the o
 | `/` | Filter the current list |
 | Enter / Esc in the filter | Accept / clear the filter |
 | PageUp / PageDown | Scroll details |
-| `r` | Refresh data |
+| `r` | Refresh data. On the Cost tab, `r` asks first because the refresh costs $0.04 |
+| `y` / `n` or Esc in the Cost dialog | Load or refresh costs / cancel with no charge |
 | `a` or right-click a selected row | Open its actions |
 | Up / Down in the action menu | Select an action |
 | Enter or click an action | Choose it |

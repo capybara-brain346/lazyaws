@@ -262,7 +262,7 @@ fn detail_line(label: &str, value: &str, theme: &Theme) -> Line<'static> {
     ])
 }
 
-fn draw_controls(
+pub(super) fn draw_controls(
     frame: &mut Frame,
     content: Rect,
     y: u16,

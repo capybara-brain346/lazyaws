@@ -419,3 +419,49 @@ fn theme_picker_previews_then_applies_or_reverts() {
     assert_eq!(app.theme().name, "Cobalt2");
     assert_eq!(app.theme_picker, None);
 }
+
+#[test]
+fn cost_tab_charges_only_after_confirmation_and_reopens_from_cache() {
+    let mut app = App::new();
+
+    assert_eq!(app.handle_key(key(KeyCode::Char('['))), Action::None);
+    assert_eq!(app.service, Service::Ec2);
+    assert_eq!(app.cost_prompt, Some(CostPrompt::Load));
+    assert_eq!(app.handle_key(key(KeyCode::Esc)), Action::None);
+    assert_eq!((app.service, app.cost_prompt), (Service::Ec2, None));
+
+    app.handle_key(key(KeyCode::Char('[')));
+    assert_eq!(app.handle_key(key(KeyCode::Char('y'))), Action::Refresh);
+    assert_eq!(app.service, Service::Cost);
+    assert!(!Service::Cost.auto_refresh());
+    app.apply(crate::demo::snapshot(Service::Cost, None));
+    assert!(
+        app.cache_cost_snapshot(std::time::SystemTime::now())
+            .is_some()
+    );
+    assert_eq!(app.handle_key(key(KeyCode::Char('j'))), Action::None);
+
+    assert_eq!(app.handle_key(key(KeyCode::Char(']'))), Action::Refresh);
+    assert_eq!(app.handle_key(key(KeyCode::Char('['))), Action::None);
+    assert_eq!((app.service, app.cost_prompt), (Service::Cost, None));
+    assert_eq!(app.snapshot.panels[0].items.len(), 4);
+
+    assert_eq!(app.handle_key(key(KeyCode::Char('r'))), Action::None);
+    assert_eq!(app.cost_prompt, Some(CostPrompt::Refresh));
+    assert_eq!(app.handle_key(key(KeyCode::Char('n'))), Action::None);
+    app.handle_key(key(KeyCode::Char('r')));
+    assert_eq!(app.handle_key(key(KeyCode::Char('y'))), Action::Refresh);
+
+    let fetched_at = app.cost_cache.as_ref().unwrap().fetched_at;
+    let mut failed = Snapshot::empty(Service::Cost);
+    for panel in &mut failed.panels {
+        panel.error = Some("AccessDeniedException".into());
+    }
+    app.apply(failed);
+    assert!(
+        app.cache_cost_snapshot(std::time::SystemTime::now())
+            .is_none()
+    );
+    assert_eq!(app.cost_cache.as_ref().unwrap().fetched_at, fetched_at);
+    assert_eq!(app.snapshot.panels[0].items.len(), 4);
+}

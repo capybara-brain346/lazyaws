@@ -9,10 +9,18 @@ pub enum Service {
     Ecr,
     S3,
     Lambda,
+    Cost,
 }
 
 impl Service {
-    pub const ALL: [Self; 5] = [Self::Ec2, Self::Ecs, Self::Ecr, Self::S3, Self::Lambda];
+    pub const ALL: [Self; 6] = [
+        Self::Ec2,
+        Self::Ecs,
+        Self::Ecr,
+        Self::S3,
+        Self::Lambda,
+        Self::Cost,
+    ];
 
     pub fn name(self) -> &'static str {
         match self {
@@ -21,7 +29,13 @@ impl Service {
             Self::Ecr => "ECR",
             Self::S3 => "S3",
             Self::Lambda => "Lambda",
+            Self::Cost => "Cost",
         }
+    }
+
+    // Cost Explorer charges for each request, so the Cost tab loads only on confirmation.
+    pub fn auto_refresh(self) -> bool {
+        self != Self::Cost
     }
 
     pub fn index(self) -> usize {
@@ -46,6 +60,7 @@ impl Service {
             Self::Ecr => ["Repositories", "Images", "Image tags", "Repository tags"],
             Self::S3 => ["Buckets", "Objects", "Prefixes", "Bucket settings"],
             Self::Lambda => ["Functions", "Versions", "Aliases", "Tags"],
+            Self::Cost => ["Summary", "By service", "Daily", "By region"],
         }
     }
 }

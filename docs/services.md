@@ -20,6 +20,7 @@ only while the lookup fails.
 | ECR | Repositories, Images, Image tags, Repository tags | DescribeRepositories, DescribeImages, ListTagsForResource |
 | S3 | Buckets, Objects, Prefixes, Bucket settings | ListBuckets, ListObjectsV2, GetBucketLocation, GetBucketVersioning |
 | Lambda | Functions, Versions, Aliases, Tags | ListFunctions, ListVersionsByFunction, ListAliases, ListTags |
+| Cost | Summary, By service, Daily, By region | GetCostAndUsage, GetCostForecast (see [Cost tab](#cost-tab)) |
 
 EC2 tags come from the selected instance response. ECR image tags come from the
 image response. S3 prefixes come from an object list with a delimiter. ECS task
@@ -39,6 +40,59 @@ Use these read permissions:
 - Lambda: `lambda:ListFunctions`, `lambda:ListVersionsByFunction`,
   `lambda:ListAliases`, and `lambda:ListTags`. `lambda:GetFunction` also
   returns tags when the read action requests them.
+
+## Cost tab
+
+AWS Cost Explorer charges $0.01 for each API request. One Cost tab load sends
+4 requests ($0.04). The tab never refreshes by itself. The 5-second poll skips
+it, and a row selection on the tab sends no command.
+
+| Event | Dialog | AWS requests |
+| --- | --- | --- |
+| Open the tab with no saved result | Yes, every time | 4 after `y`; 0 after `n` or Esc |
+| Open the tab with a saved result | No | 0 |
+| Press `r` on the tab | Yes, every time | 4 after `y`; 0 after `n` or Esc |
+| Restart Lazy AWS, then open the tab | No, if a saved result exists | 0 |
+
+The dialog has no "do not show again" option. If you cancel the first load,
+the current tab stays open. If you cancel a refresh, the saved data stays.
+
+```text
+open Cost tab --> saved result? -- yes --> show it, 0 requests
+                       |
+                       no --> dialog ($0.04) -- y --> 4 requests --> save
+                                             -- n --> stay on current tab
+r on Cost tab --> dialog ($0.04) -- y --> 4 requests --> replace saved result
+                                 -- n --> keep saved result
+```
+
+Lazy AWS saves each complete result with its fetch time in
+`$XDG_CACHE_HOME/lazyaws/cost-<account-id>.json`. Without `XDG_CACHE_HOME`, it
+uses `~/.cache/lazyaws` on Linux and `~/Library/Caches/lazyaws` on macOS. The
+file has mode `600`. The saved result has no expiry. A confirmed refresh
+replaces it. Delete the file to remove it. The header shows the age, such as
+`fetched 3 h ago`; the age turns to the warning color after 24 hours. If a
+refresh fails, the saved result and its fetch time stay. Demo mode keeps its
+result in memory only. If you leave the tab while a confirmed load runs, Lazy
+AWS stops the CLI, but AWS can still charge for requests it already received.
+
+| Panel | Request | Content |
+| --- | --- | --- |
+| Summary | GetCostAndUsage, DAILY, from the start of last month; GetCostForecast to month end | Month to date, month-end forecast, last month, and the same days of last month with the change |
+| By service | GetCostAndUsage, MONTHLY, grouped by SERVICE, this month | The top 10 services, then one row for the rest, with the share of the total |
+| Daily | From the Summary request | The last 14 days with a bar; today is `(est.)` |
+| By region | GetCostAndUsage, MONTHLY, grouped by REGION, this month | The top 10 regions, then one row for the rest |
+
+The requests use `UnblendedCost` in UTC dates and exclude the `Credit` and
+`Refund` record types, so the tab shows usage before credits. The month-end
+forecast adds the cost before today to the forecast from today. Cost Explorer
+data can be up to 24 hours late. The requests use `us-east-1`, the Cost
+Explorer endpoint; the AWS China partitions are not supported. A new account
+can have no forecast; the forecast row then shows the error in Details. The
+values, limits, and price are in `src/config.rs`.
+
+Use `ce:GetCostAndUsage` and `ce:GetCostForecast`. In AWS Organizations, the
+management account can block Cost Explorer access for member accounts.
 
 ## Actions
 

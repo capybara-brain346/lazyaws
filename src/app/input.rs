@@ -33,6 +33,10 @@ impl App {
             return Action::None;
         }
 
+        if self.cost_prompt.is_some() {
+            return self.handle_cost_prompt_key(key);
+        }
+
         if self.actions.is_some() {
             return self.handle_action_key(key);
         }
@@ -56,6 +60,7 @@ impl App {
 
         match key.code {
             KeyCode::Char('q') => Action::Quit,
+            KeyCode::Char('r') if self.service == Service::Cost => self.ask_cost_refresh(),
             KeyCode::Char('r') => {
                 self.loading = true;
                 Action::Refresh
@@ -155,6 +160,18 @@ impl App {
         let Some(target) = targets.target_at(event.column, event.row) else {
             return Action::None;
         };
+
+        if self.cost_prompt.is_some() {
+            return match (event.kind, target) {
+                (MouseEventKind::Down(MouseButton::Left), MouseTarget::ConfirmAction) => {
+                    self.confirm_cost()
+                }
+                (MouseEventKind::Down(MouseButton::Left), MouseTarget::CancelAction) => {
+                    self.cancel_cost()
+                }
+                _ => Action::None,
+            };
+        }
 
         if self.theme_picker.is_some() {
             if let (MouseEventKind::Down(MouseButton::Left), MouseTarget::ChooseTheme(index)) =
@@ -263,6 +280,15 @@ impl App {
             return Action::None;
         }
 
+        if service == Service::Cost {
+            return self.open_cost();
+        }
+
+        self.enter_service(service);
+        Action::Refresh
+    }
+
+    pub(super) fn enter_service(&mut self, service: Service) {
         self.save_current_service_state();
         self.service = service;
         let state = self.service_states[service.index()].clone();
@@ -277,7 +303,6 @@ impl App {
         self.error = None;
         self.loading = true;
         self.operation_output = None;
-        Action::Refresh
     }
 
     fn move_selection(&mut self, delta: isize) -> Action {
@@ -343,8 +368,12 @@ impl App {
     }
 
     // A new primary resource invalidates the related panels, so they must load again.
+    // Cost panels do not depend on the selected row, and each load is charged.
     fn finish_selection(&mut self, panel: usize, old_primary: Option<String>) -> Action {
-        let action = if panel == 0 && old_primary.as_deref() != self.selected_primary() {
+        let action = if panel == 0
+            && self.service.auto_refresh()
+            && old_primary.as_deref() != self.selected_primary()
+        {
             self.clear_related();
             self.loading = true;
             Action::Refresh

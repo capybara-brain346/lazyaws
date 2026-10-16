@@ -2,6 +2,8 @@ use serde_json::{Value, json};
 
 use crate::model::{Resource, Service, Snapshot};
 
+mod cost;
+
 pub fn snapshot(service: Service, selected: Option<&str>) -> Snapshot {
     let items = match service {
         Service::Ec2 => ec2(selected),
@@ -9,6 +11,7 @@ pub fn snapshot(service: Service, selected: Option<&str>) -> Snapshot {
         Service::Ecr => ecr(selected),
         Service::S3 => s3(selected),
         Service::Lambda => lambda(selected),
+        Service::Cost => cost::cost(),
     };
     let mut snapshot = Snapshot::empty(service);
     for (panel, items) in snapshot.panels.iter_mut().zip(items) {
@@ -493,7 +496,11 @@ mod tests {
 
     #[test]
     fn every_demo_service_has_two_parents_and_contextual_related_data() {
-        for service in Service::ALL {
+        // Cost panels are account totals, not children of the selected row.
+        for service in Service::ALL
+            .into_iter()
+            .filter(|service| *service != Service::Cost)
+        {
             let initial = snapshot(service, None);
             assert_eq!(
                 initial.panels[0].items.len(),

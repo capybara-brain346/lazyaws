@@ -78,6 +78,26 @@ pub const DEFAULT_AWS_BIN: &str = "aws";
 pub const DEFAULT_PROFILE_LABEL: &str = "AWS chain";
 pub const DEFAULT_REGION_LABEL: &str = "AWS config";
 pub const PROCESS_KILL_BIN: &str = "kill";
+pub const COST_EXPLORER_REGION: &str = "us-east-1";
+pub const COST_METRIC: &str = "UnblendedCost";
+pub const COST_FORECAST_METRIC: &str = "UNBLENDED_COST";
+pub const COST_FILTER: &str =
+    r#"{"Not":{"Dimensions":{"Key":"RECORD_TYPE","Values":["Credit","Refund"]}}}"#;
+pub const COST_DEFAULT_UNIT: &str = "USD";
+pub const COST_TOP_ROWS: usize = 10;
+pub const COST_DAILY_DAYS: usize = 14;
+pub const COST_BAR_WIDTH: usize = 10;
+pub const COST_MIN_AMOUNT: f64 = 0.005;
+pub const COST_REQUEST_PRICE_CENTS: u32 = 1;
+pub const COST_REQUESTS_PER_LOAD: u32 = 4;
+pub const COST_STALE_AFTER: Duration = Duration::from_secs(24 * 60 * 60);
+pub const COST_CACHE_DIR: &str = "lazyaws";
+pub const COST_CACHE_HOME_LINUX: &str = ".cache";
+pub const COST_CACHE_HOME_MACOS: &str = "Library/Caches";
+pub const COST_CACHE_FILE_PREFIX: &str = "cost-";
+pub const COST_CACHE_FORMAT: u64 = 1;
+pub const COST_PROMPT_WIDTH: u16 = 80;
+pub const COST_PROMPT_HEIGHT: u16 = 14;
 
 #[derive(Clone, Debug)]
 pub struct Config {
@@ -100,6 +120,7 @@ impl Default for Config {
 
 pub const USAGE: &str = "lazyaws [--demo] [--profile NAME] [--region REGION] [--aws-bin PATH]\n\n\
 Keys: [ or ] services, Tab panels, 0–6 panes, j/k rows, Enter details, / filter, r refresh, t themes, ? help, q quit.\n\
+The Cost tab asks before each paid Cost Explorer load, saves the result on this computer, and never refreshes by itself.\n\
 AWS mode uses your AWS CLI credentials for read commands and actions after confirmation.\n\
 Press a to choose an action. Use the mouse to select services, panels, and rows.\n\
 --demo needs no credentials.\n\

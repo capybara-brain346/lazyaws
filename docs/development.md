@@ -12,10 +12,14 @@ resource data and runs confirmed actions. Rust code forbids `unsafe`.
 | `src/app.rs`, `src/app/` | Selection, focus, filters, action state, theme state, and input |
 | `src/operations.rs`, `src/operations/` | Account identity and the allowed action catalog |
 | `src/aws/` | AWS CLI process control, queries, actions, and file transfer |
-| `src/demo.rs` | Local sample data |
+| `src/aws/cost.rs`, `src/aws/cost/` | Cost Explorer requests, UTC month periods, and cost rows |
+| `src/cost_cache.rs` | The saved Cost result on disk, with no expiry |
+| `src/app/cost.rs` | Cost load and refresh confirmation, and the in-memory Cost result |
+| `src/demo.rs`, `src/demo/` | Local sample data |
 | `src/ui.rs` | Layout and the `draw` wrapper |
 | `src/ui/mouse.rs` | Mouse targets and reverse-order hit testing |
 | `src/ui/actions.rs` | Action dialog, warnings, and command preview |
+| `src/ui/cost.rs` | Cost charge dialog and the Cost data age line |
 | `src/ui/details.rs` | JSON details, account details, and command output |
 | `src/ui/chrome.rs` | Borders, help, and key bar |
 | `src/ui/themes.rs` | Theme picker popup and its mouse targets |
@@ -126,6 +130,23 @@ UI loop               CLI worker
    | discard N            |
    |<-- result N+1 -------|
    | apply N+1            |
+```
+
+## Cost tab call paths
+
+Each Cost Explorer request is charged, so the Cost tab sends requests only
+after the user confirms. See [the service guide](services.md#cost-tab).
+
+```text
+App::change_service(Cost) -> App::open_cost
+   -> saved result: enter_service + apply(cached) -> Action::None   (no request)
+   -> no result:    cost_prompt = Load            -> Action::None
+App::handle_key('r') on Cost -> ask_cost_refresh -> cost_prompt = Refresh
+App::confirm_cost (y or click Y) -> Action::Refresh -> Worker::request
+   -> AwsCli::fetch -> cost::fetch -> FetchContext::invoke_region (4 x ce, us-east-1)
+runtime: Response::Refresh -> App::apply -> cost_cache::store -> save to disk
+runtime: first identity -> cost_cache::restore -> App.cost_cache
+runtime: poll -> skipped while !Service::auto_refresh()
 ```
 
 Keep configurable values in `src/config.rs`. Service adapters use the shared

@@ -1,4 +1,5 @@
 mod common;
+mod cost;
 mod ec2;
 mod ecr;
 mod ecs;
@@ -30,6 +31,7 @@ pub struct AwsCli {
 
 pub(crate) const INVOKE_OUTPUT_PLACEHOLDER: &str = transfers::INVOKE_OUTPUT_PLACEHOLDER;
 
+pub(crate) use cost::money;
 pub use process::outcome_unknown;
 
 pub(super) struct FetchContext<'a> {
@@ -145,6 +147,7 @@ impl AwsCli {
             Service::Ecr => ecr::fetch(&context, selected),
             Service::S3 => s3::fetch(&context, selected),
             Service::Lambda => lambda::fetch(&context, selected),
+            Service::Cost => cost::fetch(&context),
         })
     }
 }
