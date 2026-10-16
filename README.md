@@ -1,7 +1,5 @@
 <div align="center">
 
-<img width="1774" height="887" alt="lazyaws" src="https://github.com/user-attachments/assets/87cd581d-2078-4a0b-a615-58de25cf0ad9" />
-
 # Lazy AWS
 
 **Lazygit-style terminal UI for AWS.** Browse EC2, ECS, ECR, S3, and Lambda, filter lists, inspect JSON, and run confirmed actions — all from one keyboard-driven screen.
@@ -12,27 +10,7 @@ Lazy AWS shells out to your AWS CLI and shows the exact command before it runs, 
 
 </div>
 
-## Screenshots
-
-These frames come from the Remotion launch video at 00:07, 00:15.5, and 00:21.
-The video redraws the interface from `lazyaws --demo` screens. The data is local
-sample data. The camera zoom and captions are part of the video.
-
-**Browse resources.** The EC2 view shows instances, related resources, JSON
-details, and the command log on one screen.
-
 ![EC2 demo view with instances, volumes, security groups, tags, and JSON details](assets/screenshots/launch-overview.png)
-
-**Inspect details.** After you filter for `batch`, the Details pane shows the
-selected instance's JSON, including its state, network address, and tags.
-
-![Zoomed Details pane for the batch-worker-1 demo instance](assets/screenshots/launch-details.png)
-
-**Check an action.** Before you stop an instance, the confirmation dialog shows
-the target, account, warning, and exact AWS CLI command. Press `y` to run it or
-`n` to cancel.
-
-![Stop instance confirmation with the demo target, warning, and AWS CLI command](assets/screenshots/launch-confirmation.png)
 
 ## Features
 
