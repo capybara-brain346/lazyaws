@@ -71,7 +71,6 @@ export async function renderInstaller() {
   }).join("\n");
 
   const replacements = {
-    "@@VERSION@@": version,
     "@@PRODUCT_NAME@@": shellValue(config, "name"),
     "@@INSTALL_DIR@@": shellValue(config, "installDir"),
     "@@LATEST_URL@@": shellValue(config, "latestUrl"),

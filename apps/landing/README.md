@@ -175,8 +175,9 @@ Section artwork --compressed WebP--> public/icons --> page sections
 The page presents curl and Homebrew as alternative installs on macOS and Linux.
 The curl instructions show the install directory from `distribution/config.json`
 and explain when to add it to `PATH`. The demo uses the installed `lazyaws` command.
-The install script and latest-version file are static assets. GitHub Releases hosts the
-versioned binary archives and checksums. R2 is deferred until account activation.
+The install script is a static asset. GitHub Releases hosts the versioned binary
+archives and checksums, and its latest release redirect gives the installer the
+newest version. R2 is deferred until account activation.
 There is no sign-up, tracking, remote font request, or backend.
 
 The website imports `distribution/config.json` for the homepage, repository, and
@@ -189,8 +190,8 @@ After:  Home -> InstallGuide -> CopyButton(curl / brew / installed demo)
 Config: distribution/config.json -> src/config.ts -> InstallGuide
 ```
 
-`public/_headers` gives `install.sh` and `latest.txt` short cache lifetimes.
-Publish `latest.txt` only after all release downloads pass. Release operations
-and channel status are in [the release guide](../../docs/releases.md).
+`public/_headers` gives `install.sh` a short cache lifetime. The site needs a
+deploy only when the installer logic changes, not for each release. Release
+operations and channel status are in [the release guide](../../docs/releases.md).
 
 The runtime dependency audit passes. The full npm audit currently reports five high-severity advisories in the development-only Next.js lint dependency chain. No compatible patched `braces` release was available when checked. Do not use these lint tools to process untrusted file patterns.

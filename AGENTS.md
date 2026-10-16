@@ -83,6 +83,6 @@ Avoid generic messages such as `update docs`, `fix stuff`, or `misc changes`.
 - After the commit passes its required checks, create an annotated `vX.Y.Z` Git tag on that exact commit. The tag must match `Cargo.toml`. Keep one version tag for each commit made under this policy.
 - Push the commit before its tag. Pushing a version tag starts the release workflow. Check publication results before marking the version as released.
 - Never reuse, move, or delete a pushed version tag. If checks or publication fail, fix the problem in a new commit with a new version and tag.
-- Keep `latest.txt` and public package recipes on the last verified release until the new release files and checksums pass verification. Never invent checksums to match a new version.
+- Keep the latest GitHub release and public package recipes on the last verified release until the new release files and checksums pass verification. `release.yml` publishes, and so marks a release as latest, only after that verification. Never invent checksums to match a new version.
 - Preserve existing release tags. Do not change old commits or tags to apply this policy to past work.
 - Follow [the release guide](docs/releases.md) for checks, publication, and recovery.

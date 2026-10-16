@@ -6,9 +6,9 @@
 | --- | --- |
 | Source repository | Public: https://github.com/capybara-brain346/lazyaws |
 | Website | Existing Worker at https://lazyaws.xyz; `www.lazyaws.xyz` is retained |
-| GitHub Releases | Published [v0.1.0](https://github.com/capybara-brain346/lazyaws/releases/tag/v0.1.0), immutable assets |
-| curl | Live at https://lazyaws.xyz/install.sh; latest is `v0.1.0` |
-| Homebrew | Published [tap](https://github.com/capybara-brain346/homebrew-tap); native installs, formula tests, and strict audits pass on all four targets |
+| GitHub Releases | [Latest release](https://github.com/capybara-brain346/lazyaws/releases/latest), immutable assets, published by `release.yml` |
+| curl | Live at https://lazyaws.xyz/install.sh; installs the latest GitHub release automatically |
+| Homebrew | Published [tap](https://github.com/capybara-brain346/homebrew-tap); its `update-lazyaws` workflow follows the latest release |
 | crates.io | Published [0.1.0](https://crates.io/crates/lazyaws/0.1.0); locked registry install and demo checks pass |
 | AUR | Recipe prepared; owner declined AUR publication |
 | R2 | Account not enabled; owner chose GitHub downloads now and R2 later |
@@ -84,18 +84,43 @@ Maintainer          GitHub Actions             GitHub Releases
     |<--release URL-------|                          |
 ```
 
-## Publish the install channels
+## Install channels
 
-Download `SHA256SUMS` and all four archives from the published release into a
-temporary directory. Verify all digests before generating packages:
+curl and Homebrew follow the latest GitHub release without a manual step or a
+secret. GitHub marks a release as latest only when `release.yml` publishes it,
+after all archives and `SHA256SUMS` pass verification.
 
-```sh
-node scripts/generate-packages.mjs /path/to/SHA256SUMS
+```text
+push tag -> release.yml -> verified GitHub Release (latest)
+                               |
+        +----------------------+------------------------------+
+        v                                                     v
+install.sh (no version)                       homebrew-tap update-lazyaws.yml
+ HEAD github.com/.../releases/latest           every 30 min or a manual run
+ -> 302 /releases/tag/vX.Y.Z                    -> newer release? check SHA256SUMS
+ -> download + SHA-256 check                    -> generate formula from that tag
+                                                -> commit with the tap's own token
+                                                -> brew test + audit on 4 targets
 ```
 
-Copy `packaging/homebrew/Formula/lazyaws.rb` to `Formula/lazyaws.rb` in
-`capybara-brain346/homebrew-tap`. Check the formula, install it, run `brew test`,
-and publish the tap update. Do not publish a formula with a temporary checksum.
+- curl: `install.sh` follows the redirect from `latestUrl` in
+  `distribution/config.json`. It accepts only a redirect to this repository's
+  `/releases/tag/vX.Y.Z` page. The script holds no version, so the site needs a
+  deploy only when the installer logic changes. Deploy with `npm run deploy`
+  from `apps/landing`, then check that `https://lazyaws.xyz/install.sh` matches
+  `apps/landing/public/install.sh`.
+- Homebrew: the tap workflow runs every 30 minutes. It never moves the formula
+  to an older version. To update at once, run
+  `gh workflow run update-lazyaws.yml --repo capybara-brain346/homebrew-tap`.
+  GitHub disables scheduled workflows after 60 days with no activity in the
+  repository. If the tap does not follow a release, enable the workflow in the
+  tap's Actions tab, then run it manually.
+- After a release, check both channels: run `install.yml` with the tag, or run
+  the installer with no version and `brew upgrade lazyaws`.
+
+The generated recipes in `packaging/` are reference copies. The tap workflow
+generates its own formula from the release tag, so they do not need a commit
+for each release.
 
 The AUR recipe stays in this repository. It can be built locally with
 `makepkg -si` from `packaging/aur/lazyaws-bin` after the release files exist.
@@ -110,11 +135,6 @@ or publish from a matching stable tag. Its publish job reads
 `CARGO_REGISTRY_TOKEN` from the `crates.io` GitHub environment. The supplied
 credential is configured there; it is not available to pull-request jobs.
 Replace it through GitHub environment secrets when it expires or is revoked.
-
-After the public downloads and tap pass, write the exact tag plus a newline
-to `apps/landing/public/latest.txt`. Build and deploy the landing app with
-`npm run deploy`. Verify `/install.sh`, `/latest.txt`, and a fresh install from
-`https://lazyaws.xyz`. Commit the updated pointer and generated recipes.
 
 Cloudflare deploys use the existing `lazyaws` Worker in account
 `32f2a5e2a676ee905a3828b2b38b0150`. Custom domains are declared in
@@ -134,10 +154,12 @@ Cloudflare deploys use the existing `lazyaws` Worker in account
 - Remove a curl install by deleting only the installed `lazyaws` executable.
   No AWS files or shell configuration are changed by the installer.
 
-If a release is bad, restore the previous `latest.txt` value and deploy the
-site, then publish a corrected package version. Do not overwrite immutable
-assets or move a published tag. Restore the tap separately. A latest pointer
-change does not downgrade users who already installed a version.
+If a release is bad, publish a corrected version; curl and Homebrew then follow
+it. To stop new installs before that, mark the previous release as latest with
+`gh release edit vX.Y.Z --latest`, and revert the formula commit in the tap. The
+tap workflow does not downgrade the formula by itself. Do not overwrite
+immutable assets or move a published tag. Changing the latest release does not
+downgrade users who already installed a version.
 
 ## Deferred checks
 

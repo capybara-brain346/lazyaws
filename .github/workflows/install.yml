@@ -101,42 +101,5 @@ jobs:
           test "$("$binary" --version)" = "$NAME ${TAG#v}"
           "$binary" --help >/dev/null
           python3 scripts/check-demo-pty.py "$binary"
-      - name: Set up ephemeral Homebrew
-        shell: bash
-        env:
-          BREW_INSTALL_COMMIT: 7a3f48c7e498d7df3237fd41c30f4d492857edf4
-        run: |
-          if [[ "$RUNNER_OS" == Linux ]]; then
-            brew_bin=/home/linuxbrew/.linuxbrew/bin
-            brew_sbin=/home/linuxbrew/.linuxbrew/sbin
-          elif [[ "$(uname -m)" == arm64 ]]; then
-            brew_bin=/opt/homebrew/bin
-            brew_sbin=/opt/homebrew/sbin
-          else
-            brew_bin=/usr/local/bin
-            brew_sbin=/usr/local/sbin
-          fi
-
-          if ! command -v brew >/dev/null 2>&1 && [[ ! -x "$brew_bin/brew" ]]; then
-            curl -fsSL \
-              "https://raw.githubusercontent.com/Homebrew/install/$BREW_INSTALL_COMMIT/install.sh" \
-              -o "$RUNNER_TEMP/homebrew-install.sh"
-            NONINTERACTIVE=1 /bin/bash "$RUNNER_TEMP/homebrew-install.sh"
-          fi
-
-          brew_path="$(command -v brew || true)"
-          if [[ -z "$brew_path" ]]; then
-            brew_path="$brew_bin/brew"
-          fi
-          [[ -x "$brew_path" ]] || {
-            echo "Homebrew is not available at $brew_path" >&2
-            exit 1
-          }
-          brew_dir="$(dirname "$brew_path")"
-          printf '%s\n' "$brew_bin" "$brew_sbin" "$brew_dir" >> "$GITHUB_PATH"
-          export PATH="$brew_bin:$brew_sbin:$brew_dir:$PATH"
-          brew --version
-          brew install --formula "$FORMULA"
-          test "$(brew list --versions "$FORMULA")" = "$NAME ${TAG#v}"
-          brew test "$FORMULA"
-          brew audit --strict "$FORMULA"
+      - name: Install and test the Homebrew formula
+        run: scripts/check-homebrew.sh "$FORMULA" "$NAME" "$TAG"
