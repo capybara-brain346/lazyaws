@@ -74,3 +74,15 @@ Commit messages must be specific, detailed, and production-level.
 Use a precise Conventional Commit subject. Add a body when the change needs context, including the intent, affected behavior or scope, important implementation decisions, and verification.
 
 Avoid generic messages such as `update docs`, `fix stuff`, or `misc changes`.
+
+## Release Versions and Git Tags
+
+- Before every future commit, assign a new SemVer package version in `Cargo.toml` and update the `lazyaws` entry in `Cargo.lock`.
+- Use a patch increase for fixes, documentation, tests, CI, and internal changes. Use a minor increase for compatible features. Use a major increase for breaking changes after `1.0.0`; before `1.0.0`, use a minor increase for breaking changes.
+- Regenerate the installer in the same commit. Keep `Cargo.toml` as the version source; do not maintain a separate application version elsewhere.
+- After the commit passes its required checks, create an annotated `vX.Y.Z` Git tag on that exact commit. The tag must match `Cargo.toml`. Keep one version tag for each commit made under this policy.
+- Push the commit before its tag. Pushing a version tag starts the release workflow. Check publication results before marking the version as released.
+- Never reuse, move, or delete a pushed version tag. If checks or publication fail, fix the problem in a new commit with a new version and tag.
+- Keep `latest.txt` and public package recipes on the last verified release until the new release files and checksums pass verification. Never invent checksums to match a new version.
+- Preserve existing release tags. Do not change old commits or tags to apply this policy to past work.
+- Follow [the release guide](docs/releases.md) for checks, publication, and recovery.
