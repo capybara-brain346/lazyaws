@@ -110,7 +110,7 @@ Install: curl or Homebrew -> installed demo -> AWS profile
 Guide: matching cloud artwork + browse -> inspect -> confirm
           |
           v
-Footer: logo + author link
+Footer: logo + UsefulShelf badge + author link
 ```
 
 The top demo preview is capped at 840px on wide screens to keep the screenshot compact. Its width is set by `--preview-width` in `src/app/base.css`. It cycles through EC2, ECS, ECR, S3, and Lambda every two seconds, then repeats. Manual selection restarts the timer. The pause control stops the cycle; resume starts it again. Set the interval in `src/config.ts` (`site.previewIntervalMs`).
@@ -121,7 +121,7 @@ Scrollbars are hidden. The page and command panels remain scrollable.
 
 ## Files and configuration
 
-- `src/config.ts`: links, install commands, service names, guide content, preview interval, and copy feedback delay.
+- `src/config.ts`: links, the UsefulShelf footer badge, install commands, service names, guide content, preview interval, and copy feedback delay.
 - `src/app/base.css`: shared color and type tokens. `globals.css` imports the focused base, hero, guide, and responsive styles.
 - `scripts/config.mjs`: browser and capture settings.
 - `next.config.ts`: Next.js settings.

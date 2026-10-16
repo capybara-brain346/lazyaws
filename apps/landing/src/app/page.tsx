@@ -74,6 +74,19 @@ export default function Home() {
       <footer className="site-footer">
         <div className="footer-inner">
           <Brand />
+          <a
+            className="footer-badge"
+            href={site.usefulShelf.href}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <Image
+              src={site.usefulShelf.badge}
+              alt={site.usefulShelf.alt}
+              width={site.usefulShelf.width}
+              height={site.usefulShelf.height}
+            />
+          </a>
           <a href={site.author} target="_blank" rel="noopener noreferrer">
             Built by <span>Piyush Choudhari</span>
             <ArrowUpRight size={14} />

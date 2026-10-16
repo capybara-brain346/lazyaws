@@ -7,6 +7,13 @@ export const site = {
   homepage: distribution.homepage,
   github: `https://github.com/${distribution.repository}`,
   author: "https://piyushc.com",
+  usefulShelf: {
+    href: "https://usefulshelf.co/?utm_source=lazyaws.xyz&utm_medium=referral&utm_campaign=badge&utm_content=lime",
+    badge: "https://usefulshelf.co/badge/usefulshelf.svg?theme=lime",
+    alt: "Featured on UsefulShelf",
+    width: 248,
+    height: 66,
+  },
   support:
     "We support macOS, Ubuntu, Arch Linux, and Omarchy. Windows is not supported.",
   installNote:
