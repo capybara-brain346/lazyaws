@@ -3,7 +3,7 @@
   "repository": "capybara-brain346/lazyaws",
   "homepage": "https://lazyaws.xyz",
   "downloadBaseUrl": "https://github.com/capybara-brain346/lazyaws/releases/download",
-  "latestUrl": "https://lazyaws.xyz/latest.txt",
+  "latestUrl": "https://github.com/capybara-brain346/lazyaws/releases/latest",
   "tap": "capybara-brain346/tap",
   "aurPackage": "lazyaws-bin",
   "installDir": ".local/bin",

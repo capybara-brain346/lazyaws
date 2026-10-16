@@ -29,7 +29,7 @@ function executableInPath(name) {
   throw new Error(`${name} is not available in PATH`);
 }
 
-async function fixture({ corruptChecksum = false } = {}) {
+async function fixture({ corruptChecksum = false, latestTagUrl = `${config.latestUrl.replace(/\/latest$/, "")}/tag/${version}` } = {}) {
   const directory = await mkdtemp(join(tmpdir(), "lazyaws installer test "));
   const binDirectory = join(directory, "mock bin");
   const fixtureDirectory = join(directory, "downloads");
@@ -53,21 +53,26 @@ async function fixture({ corruptChecksum = false } = {}) {
   const digest = createHash("sha256").update(await readFile(archivePath)).digest("hex");
   const expectedDigest = corruptChecksum ? "0".repeat(64) : digest;
   await writeFile(join(fixtureDirectory, "SHA256SUMS"), `${expectedDigest}  ${archive}\n`);
-  await writeFile(join(fixtureDirectory, "latest.txt"), `${version}\n`);
 
   const curlStub = `#!/bin/sh
 output=
 url=
+write_out=
 while [ "$#" -gt 0 ]; do
   case "$1" in
     -o) output=$2; shift 2 ;;
+    -w) write_out=$2; shift 2 ;;
     https://*) url=$1; shift ;;
     *) shift ;;
   esac
 done
 printf '%s\\n' "$url" >> "$LAZYAWS_TEST_CURL_LOG"
+if [ "$url" = "$LAZYAWS_TEST_LATEST_URL" ]; then
+  [ "$write_out" = '%{url_effective}' ] || exit 22
+  printf '%s' "$LAZYAWS_TEST_LATEST_TAG_URL"
+  exit 0
+fi
 case "$url" in
-  "$LAZYAWS_TEST_LATEST_URL") source_file=$LAZYAWS_TEST_FIXTURE_DIR/latest.txt ;;
   "$LAZYAWS_TEST_DOWNLOAD_BASE/$LAZYAWS_TEST_VERSION/SHA256SUMS") source_file=$LAZYAWS_TEST_FIXTURE_DIR/SHA256SUMS ;;
   "$LAZYAWS_TEST_DOWNLOAD_BASE/$LAZYAWS_TEST_VERSION/$LAZYAWS_TEST_ARCHIVE") source_file=$LAZYAWS_TEST_FIXTURE_DIR/$LAZYAWS_TEST_ARCHIVE ;;
   *) exit 22 ;;
@@ -110,6 +115,7 @@ exec "$LAZYAWS_TEST_REAL_AWK" "$@"
       LAZYAWS_TEST_CURL_LOG: curlLog,
       LAZYAWS_TEST_FIXTURE_DIR: fixtureDirectory,
       LAZYAWS_TEST_LATEST_URL: config.latestUrl,
+      LAZYAWS_TEST_LATEST_TAG_URL: latestTagUrl,
       LAZYAWS_TEST_DOWNLOAD_BASE: config.downloadBaseUrl,
       LAZYAWS_TEST_VERSION: version,
       LAZYAWS_TEST_ARCHIVE: archive,
@@ -161,6 +167,16 @@ test("downloads the latest release and installs it to the default directory", as
     `${config.downloadBaseUrl}/${version}/SHA256SUMS`,
     `${config.downloadBaseUrl}/${version}/${archive}`,
   ]);
+});
+
+test("a latest release redirect outside this repository is refused", async (t) => {
+  const testFixture = await fixture({ latestTagUrl: `https://github.com/someone/else/releases/tag/${version}` });
+  t.after(() => rm(testFixture.directory, { recursive: true, force: true }));
+
+  const result = runInstaller(testFixture);
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /latest release response is invalid/);
+  assert.deepEqual((await readFile(testFixture.curlLog, "utf8")).trim().split("\n"), [config.latestUrl]);
 });
 
 test("checksum failure preserves an installed binary", async (t) => {
