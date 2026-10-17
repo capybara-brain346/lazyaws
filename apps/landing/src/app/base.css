@@ -152,7 +152,19 @@ svg {
 }
 .site-footer {
   border-top: 1px solid var(--border);
-  height: 115px;
+}
+.footer-inner {
+  min-height: 115px;
+  flex-wrap: wrap;
+  gap: 20px;
+  padding: 25px 0;
+}
+.footer-badges {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 16px;
 }
 .footer-inner .brand {
   font-size: 21px;

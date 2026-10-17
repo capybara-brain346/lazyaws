@@ -7,6 +7,14 @@ export const site = {
   homepage: distribution.homepage,
   github: `https://github.com/${distribution.repository}`,
   author: "https://piyushc.com",
+  productHunt: {
+    href: "https://www.producthunt.com/products/lazy-aws-your-cloud-your-terminal?embed=true&utm_source=badge-featured&utm_medium=badge&utm_campaign=badge-lazy-aws-your-cloud-your-terminal",
+    badge:
+      "https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1282153&theme=light&t=1792199437708",
+    alt: "Lazy AWS — Your cloud. Your terminal. - Meet Lazy AWS. A keyboard-driven home for your AWS resources | Product Hunt",
+    width: 250,
+    height: 54,
+  },
   usefulShelf: {
     href: "https://usefulshelf.co/?utm_source=lazyaws.xyz&utm_medium=referral&utm_campaign=badge&utm_content=lime",
     badge: "https://usefulshelf.co/badge/usefulshelf.svg?theme=lime",

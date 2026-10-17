@@ -103,6 +103,12 @@ test("install commands, service previews, and guide work at each viewport", asyn
     "lazyaws --demo",
   );
   await expect(page.locator(".tour-timeline > li")).toHaveCount(3);
+  const productHunt = page.getByRole("link", { name: site.productHunt.alt });
+  await expect(productHunt).toHaveAttribute("href", site.productHunt.href);
+  await expect(productHunt.locator("img")).toHaveAttribute(
+    "src",
+    site.productHunt.badge,
+  );
   await expect(
     page.getByRole("link", { name: "Built by Piyush Choudhari" }),
   ).toHaveAttribute("href", "https://piyushc.com");
