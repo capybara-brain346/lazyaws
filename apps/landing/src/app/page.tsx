@@ -32,6 +32,19 @@ export default function Home() {
       <main id="main">
         <section className="hero" aria-labelledby="hero-title">
           <div className="hero-copy">
+            <a
+              className="hero-badge"
+              href={site.productHunt.href}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <Image
+                src={site.productHunt.badge}
+                alt={site.productHunt.alt}
+                width={site.productHunt.width}
+                height={site.productHunt.height}
+              />
+            </a>
             <h1 id="hero-title">
               Your cloud.
               <br />
@@ -75,19 +88,6 @@ export default function Home() {
         <div className="footer-inner">
           <Brand />
           <div className="footer-badges">
-            <a
-              className="footer-badge"
-              href={site.productHunt.href}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              <Image
-                src={site.productHunt.badge}
-                alt={site.productHunt.alt}
-                width={site.productHunt.width}
-                height={site.productHunt.height}
-              />
-            </a>
             <a
               className="footer-badge"
               href={site.usefulShelf.href}

@@ -104,6 +104,11 @@ test("install commands, service previews, and guide work at each viewport", asyn
   );
   await expect(page.locator(".tour-timeline > li")).toHaveCount(3);
   const productHunt = page.getByRole("link", { name: site.productHunt.alt });
+  const badgeBounds = await productHunt.boundingBox();
+  const headlineBounds = await page.getByRole("heading", { level: 1 }).boundingBox();
+  expect(badgeBounds).not.toBeNull();
+  expect(headlineBounds).not.toBeNull();
+  expect(badgeBounds!.y + badgeBounds!.height).toBeLessThanOrEqual(headlineBounds!.y);
   await expect(productHunt).toHaveAttribute("href", site.productHunt.href);
   await expect(productHunt.locator("img")).toHaveAttribute(
     "src",
